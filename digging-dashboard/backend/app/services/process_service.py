@@ -9,6 +9,7 @@ import subprocess
 import psutil
 import json
 import time
+import platform
 from typing import Optional, Dict, List, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -27,6 +28,9 @@ class ProcessService:
     """挖掘进程管理服务"""
     
     def __init__(self):
+        # 平台检测
+        self.is_windows = platform.system().lower() == 'windows'
+        
         # 动态检测项目根目录 - 容器内为 /app，宿主机为实际路径
         self.project_root = os.environ.get('PROJECT_ROOT', "/Users/enkidu/Pyproject/WorldQuant")
         self.script_path = os.path.join(self.project_root, "src", "unified_digging_scheduler.py")
@@ -54,6 +58,58 @@ class ProcessService:
         self.independent_scripts = {"check_optimized", "correlation_checker", "session_keeper"}
         self.config_path = os.path.join(self.project_root, "config", "digging_config.txt")
         self.process_info: Optional[Dict[str, Any]] = None
+    
+    def _get_process_kwargs(self) -> Dict[str, Any]:
+        """获取跨平台的进程创建参数"""
+        kwargs = {}
+        
+        if not self.is_windows:
+            # Unix/Linux 系统使用 setsid 创建新进程组
+            kwargs['preexec_fn'] = os.setsid
+        else:
+            # Windows 系统使用 CREATE_NEW_PROCESS_GROUP
+            kwargs['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP
+            
+        return kwargs
+    
+    def _terminate_process_group(self, pid: int, force: bool = False) -> str:
+        """跨平台终止进程组"""
+        try:
+            if not self.is_windows:
+                # Unix/Linux 系统使用 killpg
+                if force:
+                    os.killpg(os.getpgid(pid), signal.SIGKILL)
+                    return "SIGKILL"
+                else:
+                    os.killpg(os.getpgid(pid), signal.SIGTERM)
+                    return "SIGTERM"
+            else:
+                # Windows 系统使用 psutil
+                try:
+                    process = psutil.Process(pid)
+                    # 终止进程及其所有子进程
+                    for child in process.children(recursive=True):
+                        try:
+                            if force:
+                                child.kill()
+                            else:
+                                child.terminate()
+                        except psutil.NoSuchProcess:
+                            pass
+                    
+                    # 终止主进程
+                    if force:
+                        process.kill()
+                        return "KILL"
+                    else:
+                        process.terminate()
+                        return "TERMINATE"
+                        
+                except psutil.NoSuchProcess:
+                    return "NOT_FOUND"
+                    
+        except Exception as e:
+            raise ProcessError(f"终止进程失败: {e}")
         
     def get_current_process_status(self, db: Session) -> Dict[str, Any]:
         """获取当前进程状态"""
@@ -247,12 +303,15 @@ class ProcessService:
                 f.write("=" * 50 + "\n\n")
                 f.flush()
                 
+                # 获取跨平台进程创建参数
+                process_kwargs = self._get_process_kwargs()
+                
                 process = subprocess.Popen(
                     cmd,
                     cwd=self.project_root,
                     stdout=f,
                     stderr=subprocess.STDOUT,  # 将stderr重定向到stdout
-                    preexec_fn=os.setsid  # 创建新的进程组
+                    **process_kwargs  # 跨平台进程组创建
                 )
             
             # 记录到数据库
@@ -351,6 +410,13 @@ class ProcessService:
             # 检查并处理日志轮转（父进程级别的轮转管理）
             self._ensure_log_rotation(log_file_path)
             
+            # 获取跨平台进程创建参数
+            process_kwargs = self._get_process_kwargs()
+            process_kwargs.update({
+                'text': True,
+                'bufsize': 1  # 行缓冲
+            })
+            
             # 启动进程，重定向输出到独立的日志文件
             with open(log_file_path, 'w', encoding='utf-8') as log_file:
                 process = subprocess.Popen(
@@ -358,9 +424,7 @@ class ProcessService:
                     cwd=self.project_root,
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
-                    preexec_fn=os.setsid,  # 创建新的进程组
-                    text=True,
-                    bufsize=1  # 行缓冲
+                    **process_kwargs  # 跨平台进程组创建
                 )
             
             # 记录到数据库
@@ -431,20 +495,17 @@ class ProcessService:
             
             # 终止进程
             try:
-                if force:
-                    os.killpg(os.getpgid(pid), signal.SIGKILL)
-                    terminate_method = "SIGKILL"
-                else:
-                    os.killpg(os.getpgid(pid), signal.SIGTERM)
-                    terminate_method = "SIGTERM"
-                    
+                # 使用跨平台方法终止进程
+                terminate_method = self._terminate_process_group(pid, force)
+                
+                if not force:
                     # 等待一段时间，如果还没终止则强制终止
                     time.sleep(5)
                     try:
                         process = psutil.Process(pid)
                         if process.is_running():
-                            os.killpg(os.getpgid(pid), signal.SIGKILL)
-                            terminate_method = "SIGKILL (after SIGTERM timeout)"
+                            terminate_method = self._terminate_process_group(pid, force=True)
+                            terminate_method += " (after timeout)"
                     except psutil.NoSuchProcess:
                         pass  # 进程已经终止
                         
@@ -781,22 +842,17 @@ class ProcessService:
             
             # 终止进程
             try:
-                if force:
-                    # 强制终止
-                    os.killpg(os.getpgid(pid), signal.SIGKILL)
-                    terminate_method = "SIGKILL"
-                else:
-                    # 优雅终止
-                    os.killpg(os.getpgid(pid), signal.SIGTERM)
-                    terminate_method = "SIGTERM"
-                    
+                # 使用跨平台方法终止进程
+                terminate_method = self._terminate_process_group(pid, force)
+                
+                if not force:
                     # 等待一段时间，如果还没终止则强制终止
                     time.sleep(5)
                     try:
                         process = psutil.Process(pid)
                         if process.is_running():
-                            os.killpg(os.getpgid(pid), signal.SIGKILL)
-                            terminate_method = "SIGKILL (after SIGTERM timeout)"
+                            terminate_method = self._terminate_process_group(pid, force=True)
+                            terminate_method += " (after timeout)"
                     except psutil.NoSuchProcess:
                         pass  # 进程已经终止
                         
