@@ -1,0 +1,443 @@
+.App {
+  min-height: 100vh;
+}
+
+/* 登录页面样式 */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+}
+
+.login-form-wrapper {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.login-logo h1 {
+  color: #1890ff;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.login-logo p {
+  color: #595959;
+  margin: 8px 0 0 0;
+  font-size: 14px;
+}
+
+/* 主布局样式 */
+.dashboard-layout {
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  background: white;
+  border-bottom: 1px solid #f0f0f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1001;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+
+.dashboard-logo {
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.dashboard-user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-sidebar {
+  background: white;
+  border-right: 1px solid #f0f0f0;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  bottom: 0;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.dashboard-content {
+  background: #fafafa;
+  padding: 24px;
+  min-height: calc(100vh - 64px);
+}
+
+/* 卡片样式 */
+.status-card {
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.3s ease;
+}
+
+.status-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.status-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #262626;
+}
+
+.status-card-content {
+  color: #595959;
+}
+
+/* 进程状态样式 */
+.process-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.process-status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.process-status-running .process-status-indicator {
+  background-color: #52c41a;
+  animation: pulse 2s infinite;
+}
+
+.process-status-stopped .process-status-indicator {
+  background-color: #d9d9d9;
+}
+
+.process-status-error .process-status-indicator {
+  background-color: #f5222d;
+}
+
+/* 配置表单样式 */
+.config-form-section {
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.config-form-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #262626;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.config-preview {
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 16px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  overflow-x: auto;
+}
+
+.config-preview-tag {
+  background: #1890ff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+/* 日志查看器样式 */
+.log-viewer {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 6px;
+  padding: 16px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e1e4e8;
+}
+
+.log-entry {
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.log-entry-time {
+  color: #888;
+  margin-right: 8px;
+}
+
+.log-entry-level-INFO {
+  color: #4fc3f7;
+}
+
+.log-entry-level-WARNING {
+  color: #ffb74d;
+}
+
+.log-entry-level-ERROR {
+  color: #f44336;
+}
+
+.log-entry-level-DEBUG {
+  color: #888;
+}
+
+/* 移动端导航样式 */
+.dashboard-logo-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-menu-drawer .ant-drawer-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* 响应式样式 */
+@media (max-width: 1200px) {
+  .dashboard-content {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 992px) {
+  .dashboard-content {
+    padding: 16px;
+  }
+  
+  /* 表格在平板上的优化 */
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+  
+  .ant-table {
+    min-width: 800px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    padding: 0 12px;
+  }
+  
+  .dashboard-logo {
+    font-size: 16px;
+  }
+  
+  .dashboard-user-info {
+    gap: 8px;
+  }
+  
+  .dashboard-user-info .ant-typography {
+    display: none; /* 隐藏"欢迎"文字 */
+  }
+  
+  .dashboard-content {
+    padding: 12px;
+    margin-left: 0 !important;
+  }
+  
+  .config-form-section {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  
+  .login-form-wrapper {
+    margin: 16px;
+    padding: 24px;
+  }
+  
+  /* 移动端表格优化 */
+  .ant-table-wrapper {
+    margin: -12px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+  
+  .ant-table {
+    min-width: 600px;
+    font-size: 13px;
+  }
+  
+  .ant-table-thead > tr > th {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  
+  .ant-table-tbody > tr > td {
+    padding: 8px 6px;
+  }
+  
+  /* 移动端卡片优化 */
+  .ant-card {
+    margin-bottom: 12px;
+  }
+  
+  .ant-card-head {
+    padding: 0 16px;
+    min-height: 48px;
+  }
+  
+  .ant-card-body {
+    padding: 16px;
+  }
+  
+  /* 移动端统计卡片 */
+  .ant-statistic {
+    text-align: center;
+  }
+  
+  .ant-statistic-title {
+    font-size: 13px;
+  }
+  
+  .ant-statistic-content {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-header {
+    padding: 0 8px;
+  }
+  
+  .dashboard-logo {
+    font-size: 14px;
+  }
+  
+  .dashboard-content {
+    padding: 8px;
+  }
+  
+  .config-form-section {
+    padding: 12px;
+  }
+  
+  .login-form-wrapper {
+    margin: 8px;
+    padding: 20px;
+  }
+  
+  /* 超小屏幕表格优化 */
+  .ant-table {
+    min-width: 480px;
+    font-size: 12px;
+  }
+  
+  .ant-table-thead > tr > th {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+  
+  .ant-table-tbody > tr > td {
+    padding: 6px 4px;
+  }
+  
+  /* 移动端按钮组优化 */
+  .ant-btn-group .ant-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  /* 移动端表单优化 */
+  .ant-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .ant-form-item-label {
+    padding-bottom: 4px;
+  }
+}
+
+/* 动画 */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Ant Design 组件自定义 */
+.ant-menu-item-selected {
+  background-color: #e6f7ff !important;
+}
+
+.ant-btn-primary {
+  border-color: #1890ff;
+  background-color: #1890ff;
+}
+
+.ant-btn-primary:hover {
+  border-color: #40a9ff;
+  background-color: #40a9ff;
+}
+
+/* 修复固定头部布局下的组件遮挡问题 */
+.ant-drawer {
+  top: 64px !important;
+  height: calc(100vh - 64px) !important;
+}
+
+.ant-drawer-header {
+  padding-top: 16px !important;
+  padding-bottom: 16px !important;
+}
+
+.ant-drawer-body {
+  padding-top: 0 !important;
+  padding-bottom: 16px !important; /* 确保底部有适当的间距 */
+}
+
+/* 模态框确保不被遮挡 */
+.ant-modal {
+  top: 80px !important;
+}
+
+/* 下拉菜单和选择器的z-index调整 */
+.ant-select-dropdown,
+.ant-dropdown {
+  z-index: 1050 !important;
+}

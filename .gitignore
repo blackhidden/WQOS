@@ -1,0 +1,79 @@
+# 忽略用户信息文件
+config/user_info.txt
+config/dataset_change_tracker.json
+config/digging_config_temp_*.txt
+tests/
+src/Reference/
+/data/
+logs/
+backups/
+
+.DS_Store
+*.db
+
+# 忽略记录文件
+records/
+notified_alphas.txt
+
+# Python相关忽略文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 虚拟环境
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+*.env
+
+# IDE相关
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# 数据库文件
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+database/*_backup*.db
+database/*.db-journal
+database/*.db-wal
+database/*.db-shm
+
+# 数据库测试文件
+database/test_*.db 
+
+all_nginx/

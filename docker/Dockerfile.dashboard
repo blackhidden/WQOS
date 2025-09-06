@@ -1,0 +1,40 @@
+FROM python:3.10-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# 安装系统依赖
+RUN apt-get update && apt-get install -y \
+    gcc \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制后端requirements并安装依赖
+COPY config/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 复制整个项目（因为后端需要访问主项目的脚本和数据）
+COPY . /app/
+
+# 设置初始化脚本权限
+RUN chmod +x /app/docker/init-dashboard.sh
+
+# 创建必要目录
+RUN mkdir -p /app/logs /app/records /app/database /app/digging-dashboard/backend/logs
+
+# 设置工作目录到后端
+WORKDIR /app/digging-dashboard/backend
+
+# 暴露端口
+EXPOSE 8088
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8088/health || exit 1
+
+# 启动命令
+CMD ["/bin/bash", "-c", "/app/docker/init-dashboard.sh && python run.py"]

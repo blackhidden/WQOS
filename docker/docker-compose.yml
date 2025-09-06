@@ -1,0 +1,41 @@
+services:
+  # ====================================================================
+  # WorldQuant Digging Dashboard 服务
+  # ====================================================================
+  dashboard-backend:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: worldquant-dashboard-backend
+    ports:
+      - "8088:8088"  # FastAPI服务端口
+    volumes:
+      - ..:/app  # 挂载整个项目目录
+      - ../logs:/app/logs  # 日志目录
+      - ../records:/app/records  # 记录目录
+      - ../database:/app/database  # 数据库目录
+      - ../config:/app/config  # 配置目录（可读写，用于创建临时配置文件）
+      - /etc/localtime:/etc/localtime:ro  # 同步宿主机时区
+      - /etc/timezone:/etc/timezone:ro    # 同步宿主机时区配置
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=Asia/Shanghai
+      - HOST=0.0.0.0
+      - PORT=8088
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+      - PROJECT_ROOT=/app
+      - SECRET_KEY=WQ-Alpha-Digging-Dashboard-2025-Secret-Key-Production-${RANDOM:-12345}
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - dashboard
+    networks:
+      - worldquant-network
+networks:
+  worldquant-network:
+    name: worldquant-network 
