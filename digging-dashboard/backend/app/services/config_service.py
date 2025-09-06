@@ -13,15 +13,16 @@ from app.db.models import DiggingConfigTemplate, AuditLog
 from app.core.exceptions import ValidationError, NotFoundError
 from app.models.config import DiggingConfig, DiggingConfigCreate, DiggingConfigUpdate
 from app.utils.tag_generator import TagGenerator
+from app.utils.path_utils import detect_project_root, get_config_path
 
 
 class ConfigService:
     """配置管理服务"""
     
     def __init__(self):
-        # 动态检测项目根目录 - 容器内为 /app，宿主机为实际路径
-        self.project_root = os.environ.get('PROJECT_ROOT', "/Users/enkidu/Pyproject/WorldQuant")
-        self.config_path = os.path.join(self.project_root, "config", "digging_config.txt")
+        # 自动检测项目根目录
+        self.project_root = detect_project_root()
+        self.config_path = get_config_path("digging_config.txt")
         
     def get_templates(self, db: Session, skip: int = 0, limit: int = 100) -> List[DiggingConfigTemplate]:
         """获取配置模板列表"""

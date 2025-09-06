@@ -42,7 +42,7 @@ def _auto_detect_project_root() -> str:
         current_dir = parent_dir
     
     # 如果自动检测失败，返回一个合理的默认值
-    fallback_path = "/app/WorldQuant"  # 适合Docker容器的路径
+    fallback_path = "/app"  # Docker容器的标准路径
     print(f"⚠️ 无法自动检测项目根目录，使用默认路径: {fallback_path}")
     return fallback_path
 

@@ -11,19 +11,21 @@ import aiofiles
 import re
 
 from app.core.exceptions import ValidationError
+from app.utils.path_utils import detect_project_root, get_log_path
 
 
 class LogService:
     """日志管理服务"""
     
     def __init__(self):
-        self.project_root = "/Users/enkidu/Pyproject/WorldQuant"
+        # 自动检测项目根目录
+        self.project_root = detect_project_root()
         self.log_files = {
-            "unified_digging": os.path.join(self.project_root, "logs", "unified_digging.log"),
-            "check_optimized": os.path.join(self.project_root, "test_check_optimized.log"),
-            "session_manager": os.path.join(self.project_root, "logs", "session_manager.log"),
-            "submit_daemon": os.path.join(self.project_root, "logs", "submit_daemon.log"),
-            "correlation_checker": os.path.join(self.project_root, "logs", "correlation_checker.log")
+            "unified_digging": get_log_path("unified_digging.log"),
+            "check_optimized": os.path.join(self.project_root, "test_check_optimized.log"),  # 这个日志在根目录
+            "session_manager": get_log_path("session_manager.log"),
+            "submit_daemon": get_log_path("submit_daemon.log"),
+            "correlation_checker": get_log_path("correlation_checker.log")
         }
         
         # 确保日志目录存在

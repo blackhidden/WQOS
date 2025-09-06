@@ -20,6 +20,7 @@ from app.db.models import DiggingProcess, AuditLog
 from app.core.exceptions import ProcessError, ValidationError
 from app.models.config import DiggingConfig
 from app.utils.tag_generator import TagGenerator
+from app.utils.path_utils import detect_project_root, get_script_path, get_config_path
 
 settings = get_settings()
 
@@ -31,16 +32,16 @@ class ProcessService:
         # 平台检测
         self.is_windows = platform.system().lower() == 'windows'
         
-        # 动态检测项目根目录 - 容器内为 /app，宿主机为实际路径
-        self.project_root = os.environ.get('PROJECT_ROOT', "/Users/enkidu/Pyproject/WorldQuant")
-        self.script_path = os.path.join(self.project_root, "src", "unified_digging_scheduler.py")
+        # 自动检测项目根目录
+        self.project_root = detect_project_root()
+        self.script_path = get_script_path("unified_digging_scheduler")
         
         # 脚本路径映射
         self.script_paths = {
-            "unified_digging": os.path.join(self.project_root, "src", "unified_digging_scheduler.py"),
-            "check_optimized": os.path.join(self.project_root, "src", "check_optimized.py"),
-            "correlation_checker": os.path.join(self.project_root, "src", "correlation_checker_independent.py"),
-            "session_keeper": os.path.join(self.project_root, "src", "session_keeper.py")
+            "unified_digging": get_script_path("unified_digging_scheduler"),
+            "check_optimized": get_script_path("check_optimized"),
+            "correlation_checker": get_script_path("correlation_checker_independent"),
+            "session_keeper": get_script_path("session_keeper")
         }
         
         # 脚本显示名称
@@ -56,7 +57,7 @@ class ProcessService:
         
         # 独立脚本（不需要配置模板）
         self.independent_scripts = {"check_optimized", "correlation_checker", "session_keeper"}
-        self.config_path = os.path.join(self.project_root, "config", "digging_config.txt")
+        self.config_path = get_config_path("digging_config.txt")
         self.process_info: Optional[Dict[str, Any]] = None
     
     def _get_process_kwargs(self) -> Dict[str, Any]:
