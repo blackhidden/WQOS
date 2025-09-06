@@ -10,9 +10,16 @@
 - 保持原有功能不变
 """
 
+import os
+import sys
 import asyncio
 import argparse
 from typing import Optional
+
+# 添加项目根目录到Python路径，确保能正确导入database等模块
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # 导入重构后的模块
 from digging import (
