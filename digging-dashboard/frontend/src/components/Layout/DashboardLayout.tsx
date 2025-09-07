@@ -88,7 +88,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       icon: <GithubOutlined />,
       label: '开源项目地址',
       onClick: () => {
-        window.open('https://github.com/Yao-lin101/WorldQuant', '_blank');
+        window.open('https://github.com/Yao-lin101/WQOS', '_blank');
       },
     },
     {
