@@ -48,7 +48,8 @@ class ManualRemoveRequest(BaseModel):
 # 配置数据库路径
 def get_db_manager():
     """获取数据库管理器实例"""
-    project_root = os.environ.get('PROJECT_ROOT', '/app')
+    from app.utils.path_utils import detect_project_root
+    project_root = detect_project_root()
     db_path = os.path.join(project_root, 'database', 'factors.db')
     return FactorDatabaseManager(db_path)
 
