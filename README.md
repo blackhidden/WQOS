@@ -32,6 +32,9 @@
 - **[因子挖掘调度器重构指南](docs/DIGGING_SCHEDULER_REFACTOR_GUIDE.md)** - 挖掘脚本模块化重构详解，从1072行巨型文件到15个清晰模块
 - **[相关性检查器重构指南](docs/CORRELATION_CHECKER_REFACTOR_GUIDE.md)** - 相关性检查脚本重构详解，从1965行单文件到分层模块架构
 
+### 项目更新记录
+- **[更新日志](docs/更新日志.md)** - 项目版本更新记录和重要修复说明
+
 ## 📁 项目结构
 ```
 WorldQuant/
