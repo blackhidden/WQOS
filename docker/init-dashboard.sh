@@ -35,26 +35,31 @@ done
 # ====================================================================
 echo "🗄️ 初始化数据库..."
 
-# 1. 初始化因子数据库
-echo "📊 检查因子数据库..."
+# 1. 初始化主项目因子数据库
+echo "🔧 初始化主项目因子数据库..."
 cd /app
-if [ -f "database/factors.db" ]; then
-    echo "✅ 因子数据库已存在: database/factors.db"
-else
-    echo "🔧 初始化因子数据库..."
-    python database/migrate_to_sqlite.py
-    echo "✅ 因子数据库初始化完成"
-fi
 
-# 2. 初始化面板数据库  
-echo "📊 检查面板数据库..."
-cd /app/digging-dashboard/backend
-if [ -f "dashboard.db" ]; then
-    echo "✅ 面板数据库已存在: dashboard.db"
+# 检查因子数据库是否存在
+if [ -f "/app/database/factors.db" ]; then
+    echo "📊 因子数据库已存在，检查是否需要更新..."
+    # 运行数据库迁移脚本确保结构最新
+    python database/migrate_to_sqlite.py
 else
-    echo "🔧 初始化面板数据库..."
+    echo "🔧 创建新的因子数据库..."
+    python database/migrate_to_sqlite.py
+fi
+echo "✅ 因子数据库初始化完成"
+
+# 2. 初始化Dashboard数据库
+echo "🔧 初始化Dashboard数据库..."
+cd /app/digging-dashboard/backend
+
+if [ -f "dashboard.db" ]; then
+    echo "📊 Dashboard数据库已存在，跳过初始化"
+else
+    echo "🔧 初始化新的Dashboard数据库..."
     python init_db.py
-    echo "✅ 面板数据库初始化完成"
+    echo "✅ Dashboard数据库初始化完成"
 fi
 
 # ====================================================================
@@ -72,7 +77,7 @@ if [ -f "dashboard.db" ]; then
     chmod 664 dashboard.db
 fi
 
-# 确保因子数据库可写
+# 确保主项目因子数据库可写
 if [ -f "/app/database/factors.db" ]; then
     chmod 664 /app/database/factors.db
 fi
@@ -106,8 +111,8 @@ echo "✅ 健康检查通过"
 # ====================================================================
 echo "🎉 WorldQuant Digging Dashboard 初始化完成!"
 echo ""
-echo "📊 面板数据库: /app/digging-dashboard/backend/dashboard.db"
-echo "📊 因子数据库: /app/database/factors.db"
+echo "📊 Dashboard数据库: /app/digging-dashboard/backend/dashboard.db"
+echo "🏗️  因子数据库: /app/database/factors.db"
 echo "📁 日志目录: /app/logs"
 echo "📁 记录目录: /app/records"
 echo "🌐 服务将在端口 8088 启动"

@@ -20,9 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua
 # 复制整个项目（因为后端需要访问主项目的脚本和数据）
 COPY . /app/
 
-# 设置初始化脚本权限
-RUN chmod +x /app/docker/init-dashboard.sh
-
 # 创建必要目录
 RUN mkdir -p /app/logs /app/records /app/database /app/digging-dashboard/backend/logs
 
@@ -37,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8088/health || exit 1
 
 # 启动命令
-CMD ["/bin/bash", "-c", "/app/docker/init-dashboard.sh && python run.py"]
+CMD ["/bin/bash", "-c", "chmod +x /app/docker/init-dashboard.sh && /app/docker/init-dashboard.sh && python run.py"]
