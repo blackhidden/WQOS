@@ -11,6 +11,7 @@ import DashboardPage from './pages/DashboardPage';
 import ConfigPage from './pages/ConfigPage';
 import ProcessManagementPage from './pages/ProcessManagementPage';
 import AlphaStatusPage from './pages/AlphaStatusPage';
+import DatasetFieldsPage from './pages/DatasetFieldsPage';
 
 import './App.css';
 
@@ -64,6 +65,12 @@ const App: React.FC = () => {
               <Route path="/alpha-status" element={
                 <ProtectedRoute>
                   <AlphaStatusPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/dataset-fields" element={
+                <ProtectedRoute>
+                  <DatasetFieldsPage />
                 </ProtectedRoute>
               } />
               

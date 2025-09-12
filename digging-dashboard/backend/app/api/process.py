@@ -61,13 +61,15 @@ async def start_process_from_template(
     template_id: int,
     stage: int = 1,
     n_jobs: int = 5,
+    enable_multi_simulation: bool = False,
     current_user: DashboardUser = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
-    """从配置模板启动挖掘进程"""
+    """从配置模板启动挖掘进程（支持多模拟选项）"""
     try:
         config = config_service.get_template_config(db, template_id)
-        return process_service.start_process(config, current_user.id, db, stage, n_jobs)
+        
+        return process_service.start_process(config, current_user.id, db, stage, n_jobs, enable_multi_simulation)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ProcessError as e:

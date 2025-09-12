@@ -35,13 +35,7 @@ class PPACChecker(BaseChecker):
             if quality_check is not None:
                 return False, quality_check  # 返回特殊标记值
             
-            # 检测激进模式Alpha
-            is_aggressive = self.aggressive_checker.check_correlation(
-                alpha_id, region, alpha_result, alpha_pnls, use_extended_window=True
-            )
-            if is_aggressive:
-                self.logger.info(f"🚀 检测到激进模式Alpha {alpha_id}：早期为0，近期强势上涨（使用扩展时间窗口）")
-                return False, -888.0  # 特殊返回值标识激进模式Alpha
+            # 激进模式检查已移到集成流程中，这里不再重复检查
             
             # 计算与区域的相关性
             max_correlation = self._calculate_region_correlation(clean_alpha_rets, region, alpha_id)

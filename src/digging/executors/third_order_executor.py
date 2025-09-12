@@ -18,14 +18,12 @@ from typing import List, Dict, Tuple
 from .base_executor import BaseExecutor
 
 try:
-    from machine_lib_ee import (
-        get_alphas, transform, trade_when_factory
-    )
+    from lib.data_client import get_alphas
+    from lib.factor_generator import transform, trade_when_factory
 except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from machine_lib_ee import (
-        get_alphas, transform, trade_when_factory
-    )
+    from lib.data_client import get_alphas
+    from lib.factor_generator import transform, trade_when_factory
 
 
 class ThirdOrderExecutor(BaseExecutor):
@@ -43,15 +41,20 @@ class ThirdOrderExecutor(BaseExecutor):
         """
         step2_tag = self.config_manager.generate_tag(self.current_dataset, 2)
         
+        # 计算最近一年的日期范围（end_date使用明天避免时差问题）
+        from datetime import datetime, timedelta
+        end_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+        
         # 获取符合条件的二阶因子
         so_tracker = get_alphas(
-            "2024-10-07", "2025-12-31",
+            start_date, end_date,
             1.00, 0.75,
             100, 100,
             self.config_manager.region, 
             self.config_manager.universe, 
             self.config_manager.delay, 
-            "EQUITY",
+            self.config_manager.instrument_type,
             500, "track", tag=step2_tag,
         )
         
@@ -131,11 +134,9 @@ class ThirdOrderExecutor(BaseExecutor):
         stone_bag = []
         step3_tag = self.config_manager.generate_tag(self.current_dataset, 3)
         
-        # 执行模拟
-        await self.simulation_engine.simulate_multiple_alphas(
-            alpha_list, region_list, decay_list, delay_list,
-            step3_tag, self.config_manager.neutralization, stone_bag, 
-            self.config_manager.get_n_jobs_config()
+        # 执行模拟 - 传递规范tag
+        await self.simulation_executor.execute_batch(
+            alpha_list, self.current_dataset, stage=3, tags=[step3_tag]
         )
         
         return [{'alpha': alpha, 'tag': step3_tag} for alpha in alpha_list]
@@ -166,7 +167,7 @@ class ThirdOrderExecutor(BaseExecutor):
                         self.logger.info(f"🔄 三阶挖掘持续等待二阶挖掘产生符合条件的因子...")
                         self.logger.info(f"💡 这是正常现象：三阶挖掘依赖二阶挖掘的输出，需要耐心等待")
                     
-                    await self.simulation_engine.sleep_with_countdown(3600, "等待二阶挖掘产生更多因子")
+                    await self.simulation_executor.sleep_with_countdown(3600, "等待二阶挖掘产生更多因子")
                     retry_count += 1
                     continue
                 
@@ -181,7 +182,7 @@ class ThirdOrderExecutor(BaseExecutor):
                         self.logger.info(f"✅ 数据集 {self.current_dataset} 三阶挖掘当前批次已完成")
                         self.logger.info(f"🔄 继续监控二阶挖掘，等待新的符合条件因子...")
                     
-                    await self.simulation_engine.sleep_with_countdown(1800, "等待二阶挖掘产生新的符合条件因子")  # 30分钟
+                    await self.simulation_executor.sleep_with_countdown(1800, "等待二阶挖掘产生新的符合条件因子")  # 30分钟
                     retry_count += 1
                     continue
                 
@@ -196,7 +197,7 @@ class ThirdOrderExecutor(BaseExecutor):
                 if self.logger:
                     self.logger.info(f"🔄 当前批次完成，继续监控二阶挖掘产生新的符合条件因子...")
                 
-                await self.simulation_engine.sleep_with_countdown(1800, "等待二阶挖掘产生新的符合条件因子")  # 30分钟
+                await self.simulation_executor.sleep_with_countdown(1800, "等待二阶挖掘产生新的符合条件因子")  # 30分钟
                 retry_count += 1
                 
             except KeyboardInterrupt:
@@ -209,7 +210,7 @@ class ThirdOrderExecutor(BaseExecutor):
                     import traceback
                     traceback.print_exc()
                 # 等待一段时间后重试
-                await self.simulation_engine.sleep_with_countdown(300, "异常恢复等待")
+                await self.simulation_executor.sleep_with_countdown(300, "异常恢复等待")
                 retry_count += 1
         
         return all_results
@@ -233,9 +234,6 @@ class ThirdOrderExecutor(BaseExecutor):
             
             # 2. 运行持续监控模式
             results = await self.run_continuous_monitoring()
-            
-            # 发送完成通知
-            self.send_completion_notification(stage, len(results))
             
             self.log_execution_end(stage, results, success=True)
             return results

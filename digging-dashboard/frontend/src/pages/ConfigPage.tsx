@@ -85,6 +85,9 @@ const ConfigPage: React.FC = () => {
   const [startForm] = Form.useForm();
   const [selectKey, setSelectKey] = useState(0);
   const [recommendedFieldsValue, setRecommendedFieldsValue] = useState<string[]>([]);
+  const [isRecommendedFieldsModalVisible, setIsRecommendedFieldsModalVisible] = useState(false);
+  const [tempRecommendedFields, setTempRecommendedFields] = useState<string[]>([]);
+  const [recommendedFieldsInput, setRecommendedFieldsInput] = useState('');
 
   useEffect(() => {
     dispatch(fetchConfigTemplatesAsync());
@@ -247,8 +250,18 @@ const ConfigPage: React.FC = () => {
       try {
         recommendedFields = JSON.parse(recommendedFields);
       } catch {
-        // 如果解析失败，尝试按逗号分割
-        recommendedFields = recommendedFields.split(',').map((field: string) => field.trim()).filter((field: string) => field.length > 0);
+        // 如果JSON解析失败，尝试按行分割，然后回退到逗号分割（向后兼容）
+        if (recommendedFields.includes('\n') || recommendedFields.includes('\r')) {
+          // 按行分割
+          recommendedFields = recommendedFields
+            .split(/[\n\r]+/)
+            .map((field: string) => field.trim())
+            .filter((field: string) => field.length > 0 && !field.startsWith('#'))
+            .map((field: string) => field.replace(/,\s*$/, '')); // 清理行末的逗号
+        } else {
+          // 回退到逗号分割（向后兼容）
+          recommendedFields = recommendedFields.split(',').map((field: string) => field.trim().replace(/,\s*$/, '')).filter((field: string) => field.length > 0);
+        }
       }
     }
 
@@ -295,21 +308,31 @@ const ConfigPage: React.FC = () => {
       let recommendedFields = values.recommended_fields;
       if (recommendedFields) {
         if (typeof recommendedFields === 'string') {
-          // 如果是字符串，尝试不同的解析方式
-          if (recommendedFields.includes("'") || recommendedFields.includes('"')) {
-            // 处理带引号的格式: "'field1', 'field2', 'field3'"
+          // 如果是字符串，按行分割（支持旧的逗号分割格式进行兼容）
+          if (recommendedFields.includes('\n') || recommendedFields.includes('\r')) {
+            // 按行分割
+            recommendedFields = recommendedFields
+              .split(/[\n\r]+/)
+              .map((field: string) => field.trim())
+              .filter((field: string) => field.length > 0 && !field.startsWith('#'))
+              .map((field: string) => field.replace(/,\s*$/, '')); // 清理行末的逗号
+          } else if (recommendedFields.includes("'") || recommendedFields.includes('"')) {
+            // 处理带引号的格式: "'field1', 'field2', 'field3'" (向后兼容)
             const quotedMatches = recommendedFields.match(/['"`]([^'"`]+)['"`]/g);
             if (quotedMatches) {
               recommendedFields = quotedMatches.map((match: string) => 
                 match.replace(/^['"`]|['"`]$/g, '').trim()
               ).filter((field: string) => field.length > 0);
             } else {
-              // 回退到逗号分割
-              recommendedFields = recommendedFields.split(',').map((field: string) => field.trim()).filter((field: string) => field.length > 0);
+              // 回退到逗号分割（向后兼容）
+              recommendedFields = recommendedFields.split(',').map((field: string) => field.trim().replace(/,\s*$/, '')).filter((field: string) => field.length > 0);
             }
+          } else if (recommendedFields.includes(',')) {
+            // 普通逗号分割（向后兼容）
+            recommendedFields = recommendedFields.split(',').map((field: string) => field.trim().replace(/,\s*$/, '')).filter((field: string) => field.length > 0);
           } else {
-            // 普通逗号分割
-            recommendedFields = recommendedFields.split(',').map((field: string) => field.trim()).filter((field: string) => field.length > 0);
+            // 单个字段
+            recommendedFields = [recommendedFields.trim().replace(/,\s*$/, '')].filter((field: string) => field.length > 0);
           }
         } else if (!Array.isArray(recommendedFields)) {
           // 如果不是数组也不是字符串，转换为数组
@@ -365,7 +388,8 @@ const ConfigPage: React.FC = () => {
     // 重置表单
     startForm.setFieldsValue({
       stage: 1,
-      n_jobs: 5
+      n_jobs: 5,
+      enable_multi_simulation: true
     });
   };
 
@@ -380,7 +404,8 @@ const ConfigPage: React.FC = () => {
       const result = await dispatch(startProcessFromTemplateAsync({
         templateId: templateToStart.id,
         stage: values.stage,
-        n_jobs: values.n_jobs
+        n_jobs: values.n_jobs,
+        enable_multi_simulation: values.enable_multi_simulation || false
       }));
       
       if (startProcessFromTemplateAsync.fulfilled.match(result)) {
@@ -406,6 +431,8 @@ const ConfigPage: React.FC = () => {
     setCurrentTagPreview('');
     setRecommendedFieldsValue([]);
     setUseRecommendedFields(false);  // 重置为默认状态
+    // 关闭推荐字段管理窗口
+    handleCloseRecommendedFieldsModal();
   };
 
   const validateCurrentConfig = async () => {
@@ -441,6 +468,56 @@ const ConfigPage: React.FC = () => {
     } catch (error) {
       message.error('获取同步历史失败');
     }
+  };
+
+  // 打开推荐字段管理窗口
+  const handleOpenRecommendedFieldsModal = () => {
+    setTempRecommendedFields([...recommendedFieldsValue]);
+    setRecommendedFieldsInput('');
+    setIsRecommendedFieldsModalVisible(true);
+  };
+
+  // 关闭推荐字段管理窗口
+  const handleCloseRecommendedFieldsModal = () => {
+    setIsRecommendedFieldsModalVisible(false);
+    setTempRecommendedFields([]);
+    setRecommendedFieldsInput('');
+  };
+
+  // 确认推荐字段修改
+  const handleConfirmRecommendedFields = () => {
+    setRecommendedFieldsValue([...tempRecommendedFields]);
+    form.setFieldsValue({ recommended_fields: tempRecommendedFields });
+    setIsRecommendedFieldsModalVisible(false);
+    setRecommendedFieldsInput('');
+  };
+
+  // 添加推荐字段
+  const handleAddRecommendedFields = () => {
+    if (!recommendedFieldsInput.trim()) return;
+    
+    // 按行分割并处理输入
+    const lines = recommendedFieldsInput.split(/[\n\r]+/);
+    const newFields = lines
+      .map((line: string) => line.trim())
+      .filter((line: string) => line && !line.startsWith('#'))
+      .map((line: string) => line.replace(/,\s*$/, '')); // 清理行末的逗号
+    
+    // 合并到临时字段列表
+    const combinedFields = Array.from(new Set([...tempRecommendedFields, ...newFields]));
+    setTempRecommendedFields(combinedFields);
+    setRecommendedFieldsInput('');
+  };
+
+  // 删除推荐字段
+  const handleRemoveRecommendedField = (fieldToRemove: string) => {
+    const updatedFields = tempRecommendedFields.filter(field => field !== fieldToRemove);
+    setTempRecommendedFields(updatedFields);
+  };
+
+  // 清空推荐字段
+  const handleClearRecommendedFields = () => {
+    setTempRecommendedFields([]);
   };
 
   const columns = [
@@ -775,19 +852,28 @@ const ConfigPage: React.FC = () => {
                           name="recommended_fields"
                           rules={[{ required: true, message: '请输入推荐字段' }]}
                         >
-                          <Select
-                            key={selectKey}
-                            mode="tags"
-                            value={recommendedFieldsValue}
-                            onChange={(value) => {
-                              setRecommendedFieldsValue(value);
-                              form.setFieldsValue({ recommended_fields: value });
-                            }}
-                            placeholder="输入字段名称并按回车，或粘贴逗号分隔的字段列表"
-                            style={{ width: '100%' }}
-                            tokenSeparators={[',', '，', '\n', '\t']}
-                            allowClear
-                          />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Button
+                              type="default"
+                              icon={<EditOutlined />}
+                              onClick={handleOpenRecommendedFieldsModal}
+                              style={{ flex: 1 }}
+                            >
+                              管理推荐字段 ({recommendedFieldsValue.length} 个)
+                            </Button>
+                            <Button
+                              type="link"
+                              icon={<ClearOutlined />}
+                              onClick={() => {
+                                setRecommendedFieldsValue([]);
+                                form.setFieldsValue({ recommended_fields: [] });
+                              }}
+                              danger
+                              size="small"
+                            >
+                              清空
+                            </Button>
+                          </div>
                         </Form.Item>
                       </Col>
                     </Row>
@@ -924,12 +1010,128 @@ const ConfigPage: React.FC = () => {
             >
               <InputNumber 
                 min={1} 
-                max={8} 
+                max={15} 
                 style={{ width: '100%' }}
-                placeholder="建议: 5-10"
+                placeholder="建议: 5-8"
               />
             </Form.Item>
+
+            <Form.Item
+              label="模拟模式"
+              name="enable_multi_simulation"
+              tooltip="多模拟模式可显著提升并发度：每10个alpha为一组，理论并发度可达n_jobs*10倍"
+              initialValue={true}
+            >
+              <Select placeholder="选择模拟模式">
+                <Select.Option value={true}>多模拟模式（需要顾问权限）</Select.Option>
+                <Select.Option value={false}>单模拟模式</Select.Option>
+              </Select>
+            </Form.Item>
           </Form>
+        </Modal>
+
+        {/* 推荐字段管理模态框 */}
+        <Modal
+          title="推荐字段管理"
+          open={isRecommendedFieldsModalVisible}
+          onCancel={handleCloseRecommendedFieldsModal}
+          width={900}
+          footer={[
+            <Button key="cancel" onClick={handleCloseRecommendedFieldsModal}>
+              取消
+            </Button>,
+            <Button key="clear" onClick={handleClearRecommendedFields} danger>
+              清空所有
+            </Button>,
+            <Button key="confirm" type="primary" onClick={handleConfirmRecommendedFields}>
+              确认
+            </Button>,
+          ]}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* 当前推荐字段展示区域 */}
+            <Card 
+              title={`当前推荐字段 (${tempRecommendedFields.length} 个)`}
+              size="small"
+              style={{ flex: 1 }}
+            >
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {tempRecommendedFields.length > 0 ? (
+                  <Space direction="vertical" style={{ width: '100%' }} size="small">
+                    {tempRecommendedFields.map((field, index) => (
+                      <div key={index} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        padding: '4px 8px',
+                        backgroundColor: '#f5f5f5',
+                        borderRadius: '4px'
+                      }}>
+                        <Text 
+                          style={{ 
+                            flex: 1, 
+                            fontFamily: 'monospace', 
+                            fontSize: '13px',
+                            wordBreak: 'break-all'
+                          }}
+                        >
+                          {field}
+                        </Text>
+                        <Button
+                          type="link"
+                          icon={<DeleteOutlined />}
+                          size="small"
+                          danger
+                          onClick={() => handleRemoveRecommendedField(field)}
+                        />
+                      </div>
+                    ))}
+                  </Space>
+                ) : (
+                  <Empty description="暂无推荐字段" />
+                )}
+              </div>
+            </Card>
+
+            {/* 输入区域 */}
+            <Card title="添加推荐字段" size="small">
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text type="secondary">
+                  每行输入一个字段表达式，支持批量粘贴。以 # 开头的行将被忽略，行末的逗号会被自动清理。
+                </Text>
+                <TextArea
+                  value={recommendedFieldsInput}
+                  onChange={(e) => setRecommendedFieldsInput(e.target.value)}
+                  placeholder="请输入推荐字段，每行一个，例如:
+winsorize(ts_backfill(star_val_pe / star_val_fwd5_eps_cagr, 120), std=4)
+rank(ts_sum(volume, 5))
+# 这是注释，会被忽略"
+                  rows={6}
+                  style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text type="secondary">
+                    当前输入: {recommendedFieldsInput.split(/[\n\r]+/).filter(line => line.trim() && !line.trim().startsWith('#')).length} 个字段
+                  </Text>
+                  <Space>
+                    <Button
+                      onClick={() => setRecommendedFieldsInput('')}
+                      disabled={!recommendedFieldsInput.trim()}
+                    >
+                      清空输入
+                    </Button>
+                    <Button
+                      type="primary"
+                      onClick={handleAddRecommendedFields}
+                      disabled={!recommendedFieldsInput.trim()}
+                    >
+                      添加字段
+                    </Button>
+                  </Space>
+                </div>
+              </Space>
+            </Card>
+          </div>
         </Modal>
       </div>
     </DashboardLayout>

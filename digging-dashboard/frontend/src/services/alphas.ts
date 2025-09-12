@@ -9,7 +9,9 @@ export interface AlphaItem {
   tags: string;
   fitness: number;
   sharpe: number;
-  correlation_value?: number; // 相关性值，仅在normal和ppac页签显示
+  correlation_value?: number; // 相关性值，仅在ppac和pending页签显示
+  self_corr?: number; // 自相关性值，仅在normal页签显示
+  prod_corr?: number; // 生产相关性值，仅在normal页签显示
   aggressive_mode?: boolean; // 激进模式标识
 }
 

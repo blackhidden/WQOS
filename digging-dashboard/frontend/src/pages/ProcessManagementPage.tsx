@@ -26,7 +26,8 @@ import {
   Alert,
   InputNumber,
   Empty,
-  DatePicker
+  DatePicker,
+  Tabs
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -53,7 +54,7 @@ import { fetchConfigTemplatesAsync } from '../store/configSlice';
 import { scriptsAPI, ScriptStatus, ScriptTypes, LogResponse } from '../services/scripts';
 
 const { Title, Text } = Typography;
-
+const { TabPane } = Tabs;
 const { Option } = Select;
 
 interface ScriptInfo extends ScriptStatus {
@@ -71,6 +72,7 @@ const ProcessManagementPage: React.FC = () => {
   const [scriptTypes, setScriptTypes] = useState<ScriptTypes>({});
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('active');
   
   // 日志查看状态
   const [logDrawerVisible, setLogDrawerVisible] = useState(false);
@@ -420,7 +422,8 @@ const ProcessManagementPage: React.FC = () => {
         await dispatch(startProcessFromTemplateAsync({
           templateId: values.templateId,
           stage: values.stage,
-          n_jobs: values.n_jobs
+          n_jobs: values.n_jobs,
+          enable_multi_simulation: values.enable_multi_simulation || false
         }));
         message.success(`第${values.stage}阶段因子挖掘启动成功`);
       } else {
@@ -540,8 +543,8 @@ const ProcessManagementPage: React.FC = () => {
     }
   };
 
-  // 脚本表格列定义
-  const columns = [
+  // 活跃任务表格列定义
+  const getActiveColumns = () => [
     {
       title: '脚本名称',
       dataIndex: 'script_name',
@@ -577,13 +580,22 @@ const ProcessManagementPage: React.FC = () => {
       title: '启动时间',
       dataIndex: 'started_at',
       key: 'started_at',
-      render: (time: string) => time ? new Date(time).toLocaleString() : '-',
+      render: (time: string) => time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-',
     },
     {
-      title: '停止时间',
-      dataIndex: 'stopped_at',
-      key: 'stopped_at',
-      render: (time: string) => time ? new Date(time).toLocaleString() : '-',
+      title: '运行时长',
+      key: 'uptime',
+      render: (_: any, record: ScriptInfo) => {
+        if (record.started_at && record.status === 'running') {
+          const now = dayjs();
+          const startTime = dayjs(record.started_at);
+          const duration = now.diff(startTime, 'minute');
+          const hours = Math.floor(duration / 60);
+          const minutes = duration % 60;
+          return `${hours}h ${minutes}m`;
+        }
+        return '-';
+      },
     },
     {
       title: '标签',
@@ -649,6 +661,98 @@ const ProcessManagementPage: React.FC = () => {
     },
   ];
 
+  // 历史任务表格列定义
+  const getHistoryColumns = () => [
+    {
+      title: '脚本名称',
+      dataIndex: 'script_name',
+      key: 'script_name',
+      render: (scriptName: string, record: ScriptInfo) => (
+        <Space direction="vertical" size="small" style={{ display: 'flex' }}>
+          <Space>
+            <Text strong>{scriptName}</Text>
+            {record.script_type === 'unified_digging' && record.tag && (
+              <Tag color={getStageColor(record.tag)}>{getStageLabel(record.tag)}</Tag>
+            )}
+          </Space>
+        </Space>
+      ),
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={status === 'running' ? 'green' : 'default'}>
+          {getStatusIcon(status)} {status === 'running' ? '运行中' : '已停止'}
+        </Tag>
+      ),
+    },
+    {
+      title: '启动时间',
+      dataIndex: 'started_at',
+      key: 'started_at',
+      render: (time: string) => time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-',
+    },
+    {
+      title: '停止时间',
+      dataIndex: 'stopped_at',
+      key: 'stopped_at',
+      render: (time: string) => time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-',
+    },
+    {
+      title: '运行时长',
+      key: 'duration',
+      render: (_: any, record: ScriptInfo) => {
+        if (record.started_at && record.stopped_at) {
+          const startTime = dayjs(record.started_at);
+          const stopTime = dayjs(record.stopped_at);
+          const duration = stopTime.diff(startTime, 'minute');
+          const hours = Math.floor(duration / 60);
+          const minutes = duration % 60;
+          return `${hours}h ${minutes}m`;
+        }
+        return '-';
+      },
+    },
+    {
+      title: '标签',
+      dataIndex: 'tag',
+      key: 'tag',
+      render: (tag: string) => tag || '-',
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      render: (_: any, record: ScriptInfo) => (
+        <Space>
+          <Tooltip title="查看日志">
+            <Button
+              icon={<EyeOutlined />}
+              size="small"
+              onClick={() => handleViewLogs(record)}
+            >
+              日志
+            </Button>
+          </Tooltip>
+          {typeof record.id === 'number' && (
+            <Tooltip title="删除任务">
+              <Button
+                danger
+                type="text"
+                icon={<DeleteOutlined />}
+                size="small"
+                onClick={() => handleDeleteTask(record)}
+              >
+                删除
+              </Button>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
   // 初始化
   useEffect(() => {
     loadScriptsData();
@@ -665,6 +769,10 @@ const ProcessManagementPage: React.FC = () => {
 
   // 获取因子挖掘的详细信息
   const unifiedDiggingScript = scripts.find(s => s.script_type === 'unified_digging');
+
+  // 过滤活跃和历史任务
+  const activeScripts = scripts.filter(script => script.status === 'running');
+  const historyScripts = scripts.filter(script => script.status === 'stopped');
 
   return (
     <DashboardLayout>
@@ -695,14 +803,61 @@ const ProcessManagementPage: React.FC = () => {
         </Row>
 
         {/* 脚本管理表格 */}
-        <Card title="脚本管理" style={{ marginTop: '16px' }}>
-          <Table
-            columns={columns}
-            dataSource={scripts}
-            rowKey="id"
-            loading={loading}
-            pagination={false}
-            size="middle"
+        <Card >
+          <Tabs 
+            activeKey={activeTab} 
+            onChange={setActiveTab}
+            items={[
+              {
+                key: 'active',
+                label: (
+                  <span>
+                    <PlayCircleOutlined />
+                    活跃任务 {activeScripts.length > 0 && <Tag color="green">{activeScripts.length}</Tag>}
+                  </span>
+                ),
+                children: (
+                  <Table
+                    columns={getActiveColumns()}
+                    dataSource={activeScripts}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={false}
+                    size="middle"
+                    locale={{
+                      emptyText: <Empty description="当前没有运行中的任务" />
+                    }}
+                  />
+                )
+              },
+              {
+                key: 'history',
+                label: (
+                  <span>
+                    <StopOutlined />
+                    历史任务 {historyScripts.length > 0 && <Tag color="blue">{historyScripts.length}</Tag>}
+                  </span>
+                ),
+                children: (
+                  <Table
+                    columns={getHistoryColumns()}
+                    dataSource={historyScripts}
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{
+                      pageSize: 10,
+                      showSizeChanger: true,
+                      showQuickJumper: true,
+                      showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条历史任务`
+                    }}
+                    size="middle"
+                    locale={{
+                      emptyText: <Empty description="暂无历史任务记录" />
+                    }}
+                  />
+                )
+              }
+            ]}
           />
         </Card>
 
@@ -871,10 +1026,22 @@ const ProcessManagementPage: React.FC = () => {
                 >
                   <InputNumber 
                     min={1} 
-                    max={8} 
+                    max={15} 
                     style={{ width: '100%' }}
                     placeholder="建议: 5-8"
                   />
+                </Form.Item>
+
+                <Form.Item
+                  name="enable_multi_simulation"
+                  label="模拟模式"
+                  tooltip="多模拟模式可显著提升并发度：每10个alpha为一组，理论并发度可达n_jobs*10倍"
+                  initialValue={true}
+                >
+                  <Select placeholder="选择模拟模式">
+                    <Option value={true}>多模拟模式（需要顾问权限）</Option>
+                    <Option value={false}>单模拟模式</Option>
+                  </Select>
                 </Form.Item>
               </>
             )}

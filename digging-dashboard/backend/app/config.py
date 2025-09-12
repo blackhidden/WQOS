@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # JWT认证配置
     secret_key: str = os.environ.get("SECRET_KEY", "WQ-Alpha-Digging-Dashboard-2025-Secret-Key-Production")
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 480  # 8小时
+    access_token_expire_minutes: int = 10080  # 一周
     
     # CORS配置
     allowed_origins: List[str] = [

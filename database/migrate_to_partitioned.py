@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 数据库分库迁移脚本
-作者：Assistant  
+作者：e.e.
 日期：2025.09.05
 
 功能：

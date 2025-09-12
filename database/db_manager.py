@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-作者：基于WorldQuant因子系统
-日期：2025.01.15
+作者：e.e.
+日期：2025.09.10
 功能：SQLite数据库管理器，提供高级数据库操作接口
 """
 
@@ -275,7 +275,7 @@ class FactorDatabaseManager:
                            long_count, short_count, turnover, returns, drawdown, margin,
                            fitness, sharpe, start_date, checks, os, train, test, prod,
                            competitions, themes, team, pyramids, aggressive_mode, 
-                           self_corr, prod_corr, created_at
+                           self_corr, prod_corr, recheck_flag, created_at
                     FROM submitable_alphas 
                     WHERE color = ?
                     ORDER BY date_created DESC
@@ -304,6 +304,94 @@ class FactorDatabaseManager:
         except Exception as e:
             print(f"获取{color}颜色Alpha失败: {e}")
             return []
+    
+    # ====================================================================
+    # 复查标记相关操作
+    # ====================================================================
+    
+    def set_recheck_flag(self, alpha_ids: List[str], recheck_flag: bool = True) -> int:
+        """设置Alpha的复查标记"""
+        try:
+            with self.get_connection() as conn:
+                placeholders = ', '.join(['?' for _ in alpha_ids])
+                cursor = conn.execute(f"""
+                    UPDATE submitable_alphas 
+                    SET recheck_flag = ? 
+                    WHERE alpha_id IN ({placeholders})
+                """, [recheck_flag] + alpha_ids)
+                return cursor.rowcount
+        except Exception as e:
+            print(f"设置复查标记失败: {e}")
+            return 0
+    
+    def get_alphas_for_recheck(self, region: str = None) -> List[Dict]:
+        """获取需要复查的Alpha列表"""
+        try:
+            with self.get_connection() as conn:
+                where_clause = "WHERE recheck_flag = TRUE"
+                params = []
+                if region:
+                    where_clause += " AND region = ?"
+                    params.append(region)
+                
+                cursor = conn.execute(f"""
+                    SELECT alpha_id as id, type, author, instrument_type, region, universe, 
+                           delay, decay, neutralization, truncation, pasteurization, 
+                           unit_handling, nan_handling, language, visualization, code, 
+                           description, operator_count, date_created, date_submitted, 
+                           date_modified, name, favorite, hidden, color, category, 
+                           tags, classifications, grade, stage, status, pnl, book_size,
+                           long_count, short_count, turnover, returns, drawdown, margin,
+                           fitness, sharpe, start_date, checks, os, train, test, prod,
+                           competitions, themes, team, pyramids, aggressive_mode, 
+                           self_corr, prod_corr, recheck_flag, created_at
+                    FROM submitable_alphas 
+                    {where_clause}
+                    ORDER BY date_created DESC
+                """, params)
+                
+                columns = [description[0] for description in cursor.description]
+                rows = cursor.fetchall()
+                
+                # 转换为字典列表
+                result = []
+                for row in rows:
+                    alpha_dict = dict(zip(columns, row))
+                    
+                    # 处理复杂字段的JSON反序列化
+                    complex_fields = ['tags', 'classifications', 'checks', 'os', 'train', 'test', 'prod', 'competitions', 'themes', 'team', 'pyramids']
+                    for field in complex_fields:
+                        if field in alpha_dict and alpha_dict[field]:
+                            try:
+                                alpha_dict[field] = json.loads(alpha_dict[field])
+                            except (json.JSONDecodeError, TypeError):
+                                alpha_dict[field] = []
+                    
+                    result.append(alpha_dict)
+                
+                return result
+        except Exception as e:
+            print(f"获取复查Alpha列表失败: {e}")
+            return []
+    
+    def clear_recheck_flags(self, alpha_ids: List[str] = None) -> int:
+        """清除复查标记"""
+        try:
+            with self.get_connection() as conn:
+                if alpha_ids:
+                    placeholders = ', '.join(['?' for _ in alpha_ids])
+                    cursor = conn.execute(f"""
+                        UPDATE submitable_alphas 
+                        SET recheck_flag = FALSE 
+                        WHERE alpha_id IN ({placeholders})
+                    """, alpha_ids)
+                else:
+                    # 清除所有复查标记
+                    cursor = conn.execute("UPDATE submitable_alphas SET recheck_flag = FALSE")
+                return cursor.rowcount
+        except Exception as e:
+            print(f"清除复查标记失败: {e}")
+            return 0
     
     # ====================================================================
     # 已通知因子保持文件存储方式

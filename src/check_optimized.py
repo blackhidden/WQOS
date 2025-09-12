@@ -11,12 +11,14 @@ import logging
 import numpy as np
 import pandas as pd
 from config import RECORDS_PATH, REGION_LIST
-from machine_lib_ee import get_alphas, set_alpha_properties, batch_set_alpha_properties, load_user_config, load_digging_config
-from session_client import get_session
+from lib.data_client import get_alphas
+from lib.alpha_manager import set_alpha_properties, batch_set_alpha_properties
+from lib.config_utils import load_user_config, load_digging_config
+from sessions.session_client import get_session
 from datetime import datetime, timedelta
 from collections import defaultdict
 import json
-from alpha_record_manager import (
+from sessions.alpha_record_manager import (
     is_alpha_in_records
 )
 
@@ -93,22 +95,15 @@ class OptimizedChecker:
         self.logger.info(f"  ⏰ 指数退避上限: {self.exponential_backoff_max}s")
         
     def initialize_session(self):
-        """初始化会话（使用统一会话管理器）"""
+        """初始化会话（使用SessionClient）"""
         if self.session is None:
             try:
                 self.session = get_session()
-                self.logger.info("✅ 会话初始化完成 (使用统一会话管理器)")
+                self.logger.info("✅ 会话初始化完成 (使用SessionClient)")
             except Exception as e:
-                self.logger.error(f"❌ 统一会话管理器失败: {e}")
-                # 使用SessionClient
-                try:
-                    from session_client import get_session
-                    self.session = get_session()
-                    self.logger.info("✅ 会话初始化完成 (使用SessionClient)")
-                except Exception as e2:
-                    self.logger.error(f"❌ SessionClient失败: {e2}")
-                    self.logger.error("💡 请确保SessionKeeper正在运行并维护有效会话")
-                    raise
+                self.logger.error(f"❌ SessionClient失败: {e}")
+                self.logger.error("💡 请确保SessionKeeper正在运行并维护有效会话")
+                raise
 
     def batch_check_alphas(self, alphas, submitable_alpha_file):
         """批量检查Alpha - 流式处理模式"""
@@ -140,7 +135,6 @@ class OptimizedChecker:
         self.logger.info(f"\n📊 业务逻辑过滤统计:")
         self.logger.info(f"  ⏭️  已检查跳过: {skipped_checked} 个")
         self.logger.info(f"  ✅ 需要检查: {len(valid_alphas)} 个")
-        self.logger.info(f"  💡 颜色状态过滤已在API获取阶段统一处理")
         
         if not valid_alphas:
             self.logger.info(f"📝 没有需要检查的Alpha")
@@ -195,8 +189,6 @@ class OptimizedChecker:
 
     def process_alpha_batch(self, batch_alphas, submitable_alpha_file, batch_num):
         """处理单个Alpha批次的相关性检查和结果保存"""
-        self.logger.info(f"🔍 第三阶段: 处理批次 {batch_num} ({len(batch_alphas)} 个Alpha)...")
-        
         # 初始化数据库管理器
         db_path = os.path.join(os.path.dirname(RECORDS_PATH), 'database', 'factors.db')
         db = FactorDatabaseManager(db_path)
@@ -215,9 +207,7 @@ class OptimizedChecker:
             submitable_alphas.append(alpha)
         
         # 立即保存结果
-        self.logger.info(f"\n💾 第四阶段: 保存批次结果...")
         self.logger.info(f"  ✅ 可提交: {len(submitable_alphas)} 个")
-        self.logger.info(f"  📝 注意: 相关性检测已委托给submit处理")
         
         # 1. 更新可提交Alpha数据库
         if submitable_alphas:
@@ -346,7 +336,6 @@ class OptimizedChecker:
         is_color_only = len(properties) == 1 and 'color' in properties
         
         if is_color_only:
-            self.logger.info(f"      📋 检测到仅设置颜色，使用批量API...")
             
             # 准备批量API数据格式
             alpha_data = [{"id": alpha_id, "color": properties['color']} for alpha_id in alpha_ids]
@@ -512,7 +501,19 @@ class OptimizedChecker:
                         start_date = '2024-10-07'
                         self.logger.info(f"📅 使用默认开始日期: {start_date}")
             
-            end_date = (datetime.strptime(start_date, '%Y-%m-%d') + timedelta(days=1)).strftime('%Y-%m-%d')
+            # 计算end_date：如果start_date+1是今天，则end_date=start_date+2，否则end_date=start_date+1
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+            tomorrow = start_date_obj + timedelta(days=1)
+            today = datetime.now().date()
+            
+            if tomorrow.date() == today:
+                # start_date+1是今天，使用start_date+2
+                end_date = (start_date_obj + timedelta(days=2)).strftime('%Y-%m-%d')
+                self.logger.info(f"📅 检测到start_date+1({tomorrow.strftime('%Y-%m-%d')})是今天，使用start_date+2作为end_date")
+            else:
+                # start_date+1不是今天，使用start_date+1
+                end_date = tomorrow.strftime('%Y-%m-%d')
+                self.logger.info(f"📅 start_date+1({tomorrow.strftime('%Y-%m-%d')})不是今天，使用start_date+1作为end_date")
             
             self.logger.info(f"📅 检查时间段: {start_date} 到 {end_date}")
             
@@ -598,9 +599,9 @@ class OptimizedChecker:
                 region_time = time.time() - region_start_time
                 self.logger.info(f"  ⏱️  地区 {region} 处理完成，耗时: {region_time:.2f}s")
                 
-            # 如果start_date距离当前日期超过2天，则更新start_date
+            # 如果start_date距离当前日期超过1天，则更新start_date
             start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-            if (datetime.now().date() - start_date_obj).days > 2:
+            if (datetime.now().date() - start_date_obj).days > 1:
                 new_date = (start_date_obj + timedelta(days=1)).strftime('%Y-%m-%d')
                 
                 # 数据库版本：更新start_date到数据库

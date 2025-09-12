@@ -147,7 +147,7 @@ class ProcessService:
                         except (psutil.AccessDenied, OSError):
                             # 如果无法获取创建时间，使用数据库时间
                             start_time = latest_process.started_at
-                            uptime = int((datetime.utcnow() - start_time).total_seconds()) if start_time else 0
+                            uptime = int((datetime.now() - start_time).total_seconds()) if start_time else 0
                         
                         process_info = {
                             "memory_usage": process.memory_info().rss / 1024 / 1024,  # MB
@@ -160,7 +160,7 @@ class ProcessService:
             # 更新数据库状态
             if not is_running and latest_process.status == "running":
                 latest_process.status = "stopped"
-                latest_process.stopped_at = datetime.utcnow()
+                latest_process.stopped_at = datetime.now()
                 db.commit()
             
             status = "running" if is_running else latest_process.status
@@ -208,7 +208,7 @@ class ProcessService:
                             except (psutil.AccessDenied, OSError):
                                 # 如果无法获取进程创建时间，使用数据库时间
                                 start_time = db_process.started_at
-                                uptime = int((datetime.utcnow() - start_time).total_seconds()) if start_time else 0
+                                uptime = int((datetime.now() - start_time).total_seconds()) if start_time else 0
                                 actual_start_time = start_time
                             
                             active_processes.append({
@@ -226,11 +226,11 @@ class ProcessService:
                         else:
                             # 进程已停止，更新数据库状态
                             db_process.status = "stopped"
-                            db_process.stopped_at = datetime.utcnow()
+                            db_process.stopped_at = datetime.now()
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         # 进程不存在，更新数据库状态
                         db_process.status = "stopped"
-                        db_process.stopped_at = datetime.utcnow()
+                        db_process.stopped_at = datetime.now()
             
             # 提交数据库更改
             db.commit()
@@ -254,7 +254,7 @@ class ProcessService:
                 "error_message": str(e)
             }
     
-    def start_process(self, config: DiggingConfig, user_id: int, db: Session, stage: int = 1, n_jobs: int = 5) -> Dict[str, Any]:
+    def start_process(self, config: DiggingConfig, user_id: int, db: Session, stage: int = 1, n_jobs: int = 5, enable_multi_simulation: bool = False) -> Dict[str, Any]:
         """启动挖掘进程"""
         try:
             # 移除单实例限制，允许多个unified_digging实例运行
@@ -282,6 +282,10 @@ class ProcessService:
                 "--stage", str(stage),
                 "--n_jobs", str(n_jobs)
             ]
+            
+            # 如果启用多模拟，添加参数
+            if enable_multi_simulation:
+                cmd.extend(["--enable_multi_simulation", "true"])
             
             # 确保日志目录存在
             log_dir = os.path.join(self.project_root, "logs")
@@ -583,7 +587,7 @@ class ProcessService:
                 
                 # 更新任务状态
                 task.status = "stopped"
-                task.stopped_at = datetime.utcnow()
+                task.stopped_at = datetime.now()
                 db.commit()
                 
                 script_name = self.script_names.get(task.script_type, task.script_type)
@@ -599,7 +603,7 @@ class ProcessService:
             except psutil.NoSuchProcess:
                 # 进程已经不存在，更新状态
                 task.status = "stopped"
-                task.stopped_at = datetime.utcnow()
+                task.stopped_at = datetime.now()
                 db.commit()
                 
                 return {
@@ -797,22 +801,6 @@ class ProcessService:
                 
                 result['scripts'].append(script_info)
             
-            # 对于没有任何历史记录的脚本类型，添加占位条目
-            existing_script_types = set(script['script_type'] for script in result['scripts'])
-            for script_type, script_name in self.script_names.items():
-                if script_type not in existing_script_types:
-                    script_info = {
-                        "id": f"placeholder_{script_type}",
-                        "script_type": script_type,
-                        "status": "stopped",
-                        "script_name": script_name
-                    }
-                    # 为需要配置的脚本添加额外信息
-                    if script_type in self.scripts_need_config:
-                        script_info["needs_config"] = True
-                        script_info["config_required"] = "需要配置模板才能启动"
-                    
-                    result['scripts'].append(script_info)
             
             return result
             
@@ -863,7 +851,7 @@ class ProcessService:
             
             # 更新数据库状态
             db_process.status = "stopped"
-            db_process.stopped_at = datetime.utcnow()
+            db_process.stopped_at = datetime.now()
             
             # 记录审计日志
             audit_log = AuditLog(

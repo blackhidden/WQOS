@@ -11,7 +11,7 @@
 # 地区配置 - 指定Alpha因子的目标地区
 region: USA
 
-# 宇宙配置 - 指定股票池范围
+# universe配置 - 指定股票池范围
 universe: TOP3000
 
 # 检查模式 - 指定Alpha检查模式
@@ -82,7 +82,7 @@ api_rate_limit_backoff: true
 # ====================================================================
 
 # 检查批次大小 - 每批处理的Alpha数量
-check_batch_size: 10
+check_batch_size: 50
 
 # API调用间隔 - 连续API请求间的延迟(秒)
 api_call_interval: 2.0

@@ -92,12 +92,12 @@ class BaseChecker(ABC):
         return alpha_rets[valid_alpha_mask]
     
     def _check_data_quality(self, alpha_rets: pd.Series, alpha_id: str) -> Optional[float]:
-        """检查数据质量，返回特殊标记值或None"""
-        # 检查Alpha收益率的标准差（检测厂字型Alpha）
-        alpha_std = alpha_rets.std()
-        if alpha_std == 0 or np.isnan(alpha_std):
-            self.logger.warning(f"🏭 检测到厂字型Alpha {alpha_id}：收益率标准差为0或NaN")
-            return -999.0  # 特殊返回值标识厂字型Alpha
+        """检查数据质量，返回特殊标记值或None
+        
+        注意：厂字型Alpha检测已移到QualityChecker中，这里不再检测
+        """
+        # 其他数据质量检查可以在这里添加
+        # 厂字型Alpha检测已移到QualityChecker.check_factory_pattern()
         
         return None  # 数据质量正常
     

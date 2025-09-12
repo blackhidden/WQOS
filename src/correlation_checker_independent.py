@@ -8,6 +8,7 @@
 import time
 import argparse
 from pathlib import Path
+from typing import List
 
 # 导入重构后的模块
 from correlation.core.config_manager import CorrelationConfigManager
@@ -16,6 +17,7 @@ from correlation.data.data_loader import DataLoader
 from correlation.data.pnl_manager import PnLManager
 from correlation.checkers.selfcorr_checker import SelfCorrChecker
 from correlation.checkers.ppac_checker import PPACChecker
+from correlation.checkers.quality_checker import QualityChecker
 from correlation.processors.alpha_marker import AlphaMarker
 from correlation.processors.database_updater import DatabaseUpdater
 from correlation.processors.batch_processor import BatchProcessor
@@ -44,6 +46,7 @@ class RefactoredCorrelationChecker:
         # 初始化检查器
         self.selfcorr_checker = SelfCorrChecker(self.config, self.session_service, self.data_loader, self.logger)
         self.ppac_checker = PPACChecker(self.config, self.session_service, self.data_loader, self.logger)
+        self.quality_checker = QualityChecker(self.config, self.session_service, self.pnl_manager, self.logger)
         
         # 初始化处理器
         self.alpha_marker = AlphaMarker(self.config, self.session_service, self.logger)
@@ -53,7 +56,7 @@ class RefactoredCorrelationChecker:
         self.batch_processor = BatchProcessor(
             self.config, self.session_service, self.data_loader,
             self.selfcorr_checker, self.ppac_checker, 
-            self.alpha_marker, self.database_updater, self.logger
+            self.alpha_marker, self.database_updater, self.quality_checker, self.logger
         )
     
     def initialize_session(self):
@@ -69,30 +72,53 @@ class RefactoredCorrelationChecker:
                 self.logger.error(f"❌ 无法加载数据，跳过本次检查")
                 return False
             
-            # 如果有新提交的Alpha，重置相关区域的Alpha为YELLOW
+            # 检查是否有需要复查的Alpha
+            recheck_alphas = self.database_updater.get_alphas_for_recheck()
+            
+            # 如果有新提交的Alpha，设置复查标记（替代重置为YELLOW）
             if has_new_alphas:
                 # 获取所有受影响的区域
                 affected_regions = list(self.data_loader.os_alpha_ids.keys())
-                self.database_updater.reset_alphas_to_yellow(affected_regions)
+                self.database_updater.set_recheck_flags(affected_regions)
+                # 重新获取需要复查的Alpha
+                recheck_alphas = self.database_updater.get_alphas_for_recheck()
             
-            # 获取所有Yellow状态的Alpha
-            yellow_alphas = self.database_updater.get_alphas_by_color('YELLOW')
+            # 决定检查模式和对象
+            if recheck_alphas:
+                # 复查模式：处理有复查标记的Alpha
+                alphas_to_check = recheck_alphas
+                recheck_mode = True
+                self.logger.info(f"🔄 检测到 {len(recheck_alphas)} 个需要复查的Alpha，启用复查模式")
+            else:
+                # 正常模式：处理YELLOW状态的Alpha
+                yellow_alphas = self.database_updater.get_alphas_by_color('YELLOW')
+                alphas_to_check = yellow_alphas
+                recheck_mode = False
             
-            if not yellow_alphas:
+            if not alphas_to_check:
                 if has_new_alphas:
-                    self.logger.info(f"📝 检测到 {len([alpha for ids in self.data_loader.os_alpha_ids.values() for alpha in ids])} 个新Alpha但数据库中暂无Yellow状态Alpha，可能数据同步中...")
+                    self.logger.info(f"📝 检测到 {len([alpha for ids in self.data_loader.os_alpha_ids.values() for alpha in ids])} 个新Alpha但数据库中暂无需要检查的Alpha，可能数据同步中...")
                 else:
-                    self.logger.info(f"📝 没有找到Yellow状态的Alpha，跳过本次检查")
+                    self.logger.info(f"📝 没有找到需要检查的Alpha，跳过本次检查")
                 return has_new_alphas  # 如果有新Alpha则返回True，表示有工作完成
             
-            self.logger.info(f"📊 找到 {len(yellow_alphas)} 个Yellow状态的Alpha")
+            mode_desc = "复查模式" if recheck_mode else "正常模式"
+            self.logger.info(f"📊 找到 {len(alphas_to_check)} 个需要检查的Alpha ({mode_desc})")
             
             # 批量检查相关性
-            green_alphas, blue_alphas, red_alphas, purple_alphas, aggressive_alphas, correlation_results = self.batch_processor.batch_check_correlations(yellow_alphas)
+            green_alphas, blue_alphas, red_alphas, purple_alphas, aggressive_alphas, correlation_results = self.batch_processor.batch_check_correlations(alphas_to_check, recheck_mode)
+            
+            # 整个检测流程完成后，统一清理PnL缓存
+            self._cleanup_pnl_cache_after_detection(green_alphas, blue_alphas)
+            
+            # 复查模式下，复查标记已在各批次中逐步清除，无需统一处理
+            if recheck_mode:
+                self.logger.info(f"🔄 复查完成，所有批次的复查标记已在处理过程中清除")
             
             # 结果已在批次处理中标记和统计，这里只显示简要完成信息
             total_checked = len(green_alphas) + len(blue_alphas) + len(red_alphas) + len(purple_alphas)
-            self.logger.info(f"\n✅ 本轮检查完成: {total_checked}个Alpha处理完毕")
+            mode_desc = "复查模式" if recheck_mode else "正常模式"
+            self.logger.info(f"\n✅ 本轮检查完成 ({mode_desc}): {total_checked}个Alpha处理完毕")
             
             return True
             
@@ -101,6 +127,31 @@ class RefactoredCorrelationChecker:
             import traceback
             traceback.print_exc()
             return False
+    
+    def _cleanup_pnl_cache_after_detection(self, green_alphas: List[str], blue_alphas: List[str]):
+        """整个检测流程完成后，统一清理PnL缓存"""
+        try:
+            # 现在数据库状态已更新，可以安全获取所有通过检测的alpha
+            db_green_alphas = self.database_updater.get_alphas_by_color('GREEN')
+            db_blue_alphas = self.database_updater.get_alphas_by_color('BLUE')
+            
+            # 合并所有通过检测的alpha
+            current_passed = green_alphas + blue_alphas
+            existing_passed_ids = [alpha['id'] for alpha in db_green_alphas + db_blue_alphas]
+            all_passed_alphas = list(set(current_passed + existing_passed_ids))
+            
+            if all_passed_alphas:
+                self.logger.info(f"🧹 统一清理PnL缓存: 保留 {len(current_passed)} 个本轮通过 + {len(existing_passed_ids)} 个数据库已有 = {len(all_passed_alphas)} 个Alpha的缓存")
+                self.data_loader.pnl_manager.cleanup_pnl_cache(all_passed_alphas)
+            else:
+                self.logger.warning(f"⚠️ 没有找到任何通过检测的Alpha，跳过PnL缓存清理")
+        except Exception as e:
+            self.logger.error(f"❌ 统一PnL缓存清理失败: {e}")
+            # 降级方案：至少保留本轮通过的alpha
+            if green_alphas or blue_alphas:
+                fallback_passed = green_alphas + blue_alphas
+                self.logger.info(f"🧹 降级方案: 仅保留本轮 {len(fallback_passed)} 个通过检测的Alpha缓存")
+                self.data_loader.pnl_manager.cleanup_pnl_cache(fallback_passed)
     
     def run_correlation_check(self, continuous_mode=True, check_interval=300):
         """运行相关性检查 (支持持续监控模式)

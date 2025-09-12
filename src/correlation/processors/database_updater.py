@@ -58,7 +58,10 @@ class DatabaseUpdater:
                     """, (self_corr, prod_corr, alpha_id))
                     
                     updated_count += 1
-                    self.logger.debug(f"        更新Alpha {alpha_id}: self_corr={self_corr:.4f}, prod_corr={prod_corr:.4f}")
+                    # 处理None值的格式化
+                    self_corr_str = f"{self_corr:.4f}" if self_corr is not None else "None"
+                    prod_corr_str = f"{prod_corr:.4f}" if prod_corr is not None else "None"
+                    self.logger.debug(f"        更新Alpha {alpha_id}: self_corr={self_corr_str}, prod_corr={prod_corr_str}")
                 
                 conn.commit()
             
@@ -156,3 +159,50 @@ class DatabaseUpdater:
         
         self.logger.info(f"🔄 重置完成: 总计 {reset_count} 个Alpha在数据库中被重置为YELLOW")
         self.logger.info(f"💡 注意: 仅更新数据库，平台属性将在后续检测完成后统一更新")
+    
+    def set_recheck_flags(self, affected_regions: List[str]):
+        """将指定区域的Alpha标记为需要复查（替代reset_alphas_to_yellow）"""
+        self.logger.info(f"\n🔄 检测到新提交的Alpha，标记相关区域的Alpha为复查状态...")
+        
+        recheck_count = 0
+        for region in affected_regions:
+            try:
+                # 获取该区域所有非YELLOW状态的Alpha
+                with self.db.get_connection() as conn:
+                    cursor = conn.execute("""
+                        SELECT alpha_id FROM submitable_alphas 
+                        WHERE region = ? AND color != 'YELLOW'
+                    """, (region,))
+                    region_alphas = [row[0] for row in cursor.fetchall()]
+                
+                if region_alphas:
+                    self.logger.info(f"  🌍 {region} 区域: 标记 {len(region_alphas)} 个Alpha为复查状态")
+                    
+                    # 设置复查标记，不重置颜色
+                    recheck_updated = self.db.set_recheck_flag(region_alphas, True)
+                    
+                    recheck_count += recheck_updated
+                    self.logger.info(f"    ✅ 复查标记设置完成: {recheck_updated} 个Alpha")
+                else:
+                    self.logger.info(f"  🌍 {region} 区域: 没有需要标记的Alpha")
+                
+            except Exception as e:
+                self.logger.error(f"  ❌ 标记 {region} 区域Alpha复查失败: {e}")
+        
+        self.logger.info(f"🔄 复查标记完成: 总计 {recheck_count} 个Alpha被标记为复查状态")
+        self.logger.info(f"💡 注意: 复查模式下将跳过质量检查和激进模式检查，仅进行相关性检查")
+    
+    def get_alphas_for_recheck(self, region: str = None) -> List[Dict]:
+        """获取需要复查的Alpha列表"""
+        return self.db.get_alphas_for_recheck(region)
+    
+    def clear_recheck_flags(self, alpha_ids: List[str] = None):
+        """清除复查标记"""
+        try:
+            cleared_count = self.db.clear_recheck_flags(alpha_ids)
+            if alpha_ids:
+                self.logger.info(f"        ✅ 清除 {cleared_count} 个Alpha的复查标记")
+            else:
+                self.logger.info(f"        ✅ 清除所有复查标记 ({cleared_count} 个Alpha)")
+        except Exception as e:
+            self.logger.error(f"        ❌ 清除复查标记失败: {e}")

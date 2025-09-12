@@ -121,9 +121,9 @@ async def get_submitable_alphas(
                     LIMIT ? OFFSET ?
                 """
             elif tab == 'normal':
-                # 普通因子显示self_corr
+                # 普通因子同时显示self_corr和prod_corr
                 query = """
-                    SELECT alpha_id, tags, fitness, sharpe, self_corr as correlation_value, aggressive_mode
+                    SELECT alpha_id, tags, fitness, sharpe, self_corr, prod_corr, aggressive_mode
                     FROM submitable_alphas 
                     WHERE color = ?
                     ORDER BY date_created DESC
@@ -145,14 +145,27 @@ async def get_submitable_alphas(
             # 转换为字典列表
             alphas = []
             for row in rows:
-                alpha = {
-                    "alpha_id": row[0],
-                    "tags": row[1],
-                    "fitness": row[2],
-                    "sharpe": row[3],
-                    "correlation_value": row[4],
-                    "aggressive_mode": bool(row[5]) if row[5] is not None else False
-                }
+                if tab == 'normal':
+                    # 普通因子有两个相关性字段
+                    alpha = {
+                        "alpha_id": row[0],
+                        "tags": row[1],
+                        "fitness": row[2],
+                        "sharpe": row[3],
+                        "self_corr": row[4],
+                        "prod_corr": row[5],
+                        "aggressive_mode": bool(row[6]) if row[6] is not None else False
+                    }
+                else:
+                    # PPAC和pending只有一个correlation_value字段
+                    alpha = {
+                        "alpha_id": row[0],
+                        "tags": row[1],
+                        "fitness": row[2],
+                        "sharpe": row[3],
+                        "correlation_value": row[4],
+                        "aggressive_mode": bool(row[5]) if row[5] is not None else False
+                    }
                 alphas.append(alpha)
         
         return {

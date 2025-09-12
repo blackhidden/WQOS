@@ -23,10 +23,10 @@ if project_root not in sys.path:
 
 # 导入重构后的模块
 from digging import (
-    ConfigManager, NotificationService, ProgressTracker, SimulationEngine,
+    ConfigManager, NotificationService, ProgressTracker,
     FirstOrderExecutor, SecondOrderExecutor, ThirdOrderExecutor
 )
-from digging.utils.logging_utils import setup_digging_logger
+from machine_lib_ee import setup_unified_logger
 
 
 class UnifiedDiggingScheduler:
@@ -34,16 +34,18 @@ class UnifiedDiggingScheduler:
     
     def __init__(self, config_file: Optional[str] = None, 
                  stage: Optional[int] = None, 
-                 n_jobs: Optional[int] = None):
+                 n_jobs: Optional[int] = None,
+                 enable_multi_simulation: Optional[bool] = None):
         """初始化调度器
         
         Args:
             config_file: 配置文件路径
             stage: 执行阶段 (1, 2, 或 3)
             n_jobs: 并发数
+            enable_multi_simulation: 是否启用多模拟模式
         """
-        # 设置日志
-        self.logger = setup_digging_logger('unified_digging')
+        # 设置日志（使用统一配置）
+        self.logger = setup_unified_logger('unified_digging')
         
         # 初始化配置管理器
         self.config_manager = ConfigManager(config_file)
@@ -58,10 +60,27 @@ class UnifiedDiggingScheduler:
         else:
             self.n_jobs = self.config_manager.get_n_jobs_config()
         
+        # 设置多模拟配置
+        if enable_multi_simulation is not None:
+            # 使用n_jobs作为多模拟的并发数，子模拟数量固定为10
+            self.config_manager.set_multi_simulation_config(
+                enable_multi_simulation=enable_multi_simulation,
+                multi_children_limit=10,  # 固定为10，吃满API上限
+                multi_batch_limit=self.n_jobs  # 使用n_jobs作为并发数
+            )
+        
         # 初始化服务组件
         self.notification_service = NotificationService(self.config_manager)
         self.progress_tracker = ProgressTracker(self.config_manager, self.notification_service)
-        self.simulation_engine = SimulationEngine(self.config_manager)
+        
+        # 使用统一模拟执行器
+        try:
+            from lib.simulation import UnifiedSimulationExecutor
+            self.simulation_executor = UnifiedSimulationExecutor(self.config_manager)
+            self.logger.info("✅ 使用统一模拟执行器")
+        except ImportError:
+            # 回退到旧的模拟引擎
+            self.logger.warning("⚠️ 统一模拟执行器不可用")
         
         # 设置日志记录器
         self._inject_logger_to_services()
@@ -78,7 +97,7 @@ class UnifiedDiggingScheduler:
         """将日志记录器注入到所有服务组件"""
         self.notification_service.set_logger(self.logger)
         self.progress_tracker.set_logger(self.logger)
-        self.simulation_engine.set_logger(self.logger)
+        self.simulation_executor.set_logger(self.logger)
     
     def _create_executor(self):
         """根据阶段创建对应的执行器
@@ -89,21 +108,21 @@ class UnifiedDiggingScheduler:
         if self.stage == 1:
             executor = FirstOrderExecutor(
                 self.config_manager, 
-                self.simulation_engine, 
+                self.simulation_executor, 
                 self.progress_tracker, 
                 self.notification_service
             )
         elif self.stage == 2:
             executor = SecondOrderExecutor(
                 self.config_manager, 
-                self.simulation_engine, 
+                self.simulation_executor, 
                 self.progress_tracker, 
                 self.notification_service
             )
         elif self.stage == 3:
             executor = ThirdOrderExecutor(
                 self.config_manager, 
-                self.simulation_engine, 
+                self.simulation_executor, 
                 self.progress_tracker, 
                 self.notification_service
             )
@@ -154,19 +173,26 @@ async def main():
     parser.add_argument('--config', type=str, help='配置文件路径')
     parser.add_argument('--stage', type=int, choices=[1, 2, 3], help='执行阶段 (1, 2, 或 3)')
     parser.add_argument('--n_jobs', type=int, help='并发数')
+    parser.add_argument('--enable_multi_simulation', type=str, choices=['true', 'false'], help='是否启用多模拟模式')
     args = parser.parse_args()
     
-    # 创建临时logger用于启动日志
-    startup_logger = setup_digging_logger()
+    # 创建临时logger用于启动日志（使用统一配置）
+    startup_logger = setup_unified_logger('unified_digging_startup')
     startup_logger.info("🚀 因子挖掘启动中...")
     startup_logger.info(f"📋 命令行参数: {args}")
     
     try:
+        # 解析enable_multi_simulation参数
+        enable_multi_simulation = None
+        if args.enable_multi_simulation:
+            enable_multi_simulation = args.enable_multi_simulation.lower() == 'true'
+        
         # 创建调度器
         scheduler = UnifiedDiggingScheduler(
             config_file=args.config,
             stage=args.stage,
-            n_jobs=args.n_jobs
+            n_jobs=args.n_jobs,
+            enable_multi_simulation=enable_multi_simulation
         )
         
         # 运行挖掘任务

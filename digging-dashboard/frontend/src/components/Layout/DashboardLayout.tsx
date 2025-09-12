@@ -16,7 +16,8 @@ import {
   MenuUnfoldOutlined,
   CodeOutlined,
   BarChartOutlined,
-  GithubOutlined
+  GithubOutlined,
+  DatabaseOutlined
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
@@ -78,6 +79,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       key: '/alpha-status',
       icon: <BarChartOutlined />,
       label: 'Alpha状态',
+    },
+    {
+      key: '/dataset-fields',
+      icon: <DatabaseOutlined />,
+      label: '数据集字段',
     },
   ];
 

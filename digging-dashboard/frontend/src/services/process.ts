@@ -21,8 +21,19 @@ export const startProcess = (config: DiggingConfig) => {
 };
 
 // 从模板启动进程
-export const startProcessFromTemplate = (templateId: number, stage: number = 1, n_jobs: number = 5) => {
-  return apiClient.post(`/process/start-template/${templateId}?stage=${stage}&n_jobs=${n_jobs}`);
+export const startProcessFromTemplate = (
+  templateId: number, 
+  stage: number = 1, 
+  n_jobs: number = 5,
+  enable_multi_simulation: boolean = false
+) => {
+  const params = new URLSearchParams({
+    stage: stage.toString(),
+    n_jobs: n_jobs.toString(),
+    enable_multi_simulation: enable_multi_simulation.toString()
+  });
+  
+  return apiClient.post(`/process/start-template/${templateId}?${params.toString()}`);
 };
 
 // 停止进程

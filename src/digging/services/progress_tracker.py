@@ -17,17 +17,13 @@ from datetime import datetime
 from typing import Tuple, Set, Optional
 
 try:
-    from machine_lib_ee import (
-        first_order_factory, get_alphas, transform, 
-        get_group_second_order_factory
-    )
+    from lib.factor_generator import first_order_factory, get_group_second_order_factory, transform
+    from lib.data_client import get_alphas
     from digging.utils.common_utils import get_filtered_operators
 except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from machine_lib_ee import (
-        first_order_factory, get_alphas, transform, 
-        get_group_second_order_factory
-    )
+    from lib.factor_generator import first_order_factory, get_group_second_order_factory, transform
+    from lib.data_client import get_alphas
     from digging.utils.common_utils import get_filtered_operators
 
 
@@ -46,7 +42,8 @@ class ProgressTracker:
         self.logger = None  # 将在设置时注入
         
         # 通知状态跟踪
-        self.notified_thresholds = set()  # 已通知的阈值，避免重复通知
+        self.notification_sent = False  # 是否已发送通知，避免重复通知
+        self.notification_retry_count = 0  # 通知重试次数
     
     def set_logger(self, logger):
         """设置日志记录器"""
@@ -145,12 +142,17 @@ class ProgressTracker:
             # 基于一阶符合条件的因子数量计算二阶总数
             step1_tag = self.config_manager.generate_tag(dataset_id, 1)
             
-            fo_tracker = get_alphas("2024-10-07", "2025-12-31",
+            # 计算最近一年的日期范围（end_date使用明天避免时差问题）
+            from datetime import datetime, timedelta
+            end_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+            
+            fo_tracker = get_alphas(start_date, end_date,
                                    0.75, 0.5, 100, 100,
                                    self.config_manager.region, 
                                    self.config_manager.universe, 
                                    self.config_manager.delay, 
-                                   "EQUITY",
+                                   self.config_manager.instrument_type,
                                    500, "track", tag=step1_tag)
             
             if not fo_tracker['next'] and not fo_tracker['decay']:
@@ -220,13 +222,18 @@ class ProgressTracker:
         try:
             step1_tag = self.config_manager.generate_tag(dataset_id, 1)
             
+            # 计算最近一年的日期范围（end_date使用明天避免时差问题）
+            from datetime import datetime, timedelta
+            end_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+            
             # 查询符合条件的一阶因子
-            fo_tracker = get_alphas("2024-10-07", "2025-12-31",
+            fo_tracker = get_alphas(start_date, end_date,
                                    0.75, 0.5, 100, 100,
                                    self.config_manager.region, 
                                    self.config_manager.universe, 
                                    self.config_manager.delay, 
-                                   "EQUITY",
+                                   self.config_manager.instrument_type,
                                    500, "track", tag=step1_tag)
             
             total_qualified = len(fo_tracker.get('next', [])) + len(fo_tracker.get('decay', []))
@@ -257,29 +264,37 @@ class ProgressTracker:
             if stage != 1 or not self.notification_service:
                 return
             
-            # 检查是否达到任何通知阈值
-            for threshold in self.config_manager.notification_thresholds:
-                if completion_rate >= threshold and threshold not in self.notified_thresholds:
+            # 避免重复发送通知
+            if self.notification_sent:
+                return
+                
+            # 限制重试次数，避免无限重试
+            if self.notification_retry_count >= 3:
+                if self.logger:
+                    self.logger.warning(f"⚠️ 单模拟通知已重试{self.notification_retry_count}次，停止重试")
+                return
+                
+            # 只在进度超过95%且未完成时发送一次通知（不包括100%完成通知）
+            if completion_rate > 95.0 and completion_rate < 100.0:
+                self.notification_retry_count += 1
+                if self.logger:
+                    self.logger.info(f"🔔 触发单模拟进度通知 (第{self.notification_retry_count}次尝试): {completion_rate:.2f}% > 95%")
+                
+                # 发送通知
+                success = self.notification_service.send_completion_notification(
+                    dataset_id, completion_rate, completed_count, 
+                    total_count, remaining_count, start_time
+                )
+                
+                if success:
+                    # 只有发送成功才标记为已发送，避免重复
+                    self.notification_sent = True
                     if self.logger:
-                        self.logger.info(f"🔔 触发完成度通知: {completion_rate:.2f}% >= {threshold}%")
-                    
-                    # 发送通知
-                    success = self.notification_service.send_completion_notification(
-                        dataset_id, completion_rate, completed_count, 
-                        total_count, remaining_count, start_time
-                    )
-                    
-                    if success:
-                        # 标记该阈值已通知
-                        self.notified_thresholds.add(threshold)
-                        if self.logger:
-                            self.logger.info(f"✅ 完成度通知已发送并标记: {threshold}%")
-                    else:
-                        if self.logger:
-                            self.logger.warning(f"❌ 完成度通知发送失败: {threshold}%")
-                    
-                    # 只发送一次通知（发送最高达到的阈值）
-                    break
+                        self.logger.info(f"✅ 单模拟进度通知已发送并标记，不会再次发送")
+                else:
+                    # 发送失败不标记，下次进度更新时会重试
+                    if self.logger:
+                        self.logger.warning(f"❌ 单模拟进度通知发送失败 (第{self.notification_retry_count}/3次)，下次进度更新时将重试")
                     
         except Exception as e:
             if self.logger:
@@ -287,7 +302,8 @@ class ProgressTracker:
     
     def reset_notification_state(self):
         """重置通知状态（用于新的数据集或新的挖掘周期）"""
-        self.notified_thresholds.clear()
+        self.notification_sent = False
+        self.notification_retry_count = 0
         if self.logger:
             self.logger.info("🔄 通知状态已重置")
     

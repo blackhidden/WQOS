@@ -14,12 +14,12 @@ from datetime import datetime
 from typing import Optional
 
 try:
-    from machine_lib_ee import load_user_config
+    from lib.config_utils import load_user_config
 except ImportError:
     import sys
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from machine_lib_ee import load_user_config
+    from lib.config_utils import load_user_config
 
 
 class NotificationService:
@@ -95,7 +95,7 @@ class NotificationService:
             content_lines.append(f"- {urgency} 级别通知")
             content_lines.append(f"- 数据集: {dataset_id}")
             content_lines.append(f"- 地区: {self.config_manager.region}")
-            content_lines.append(f"- 宇宙: {self.config_manager.universe}")
+            content_lines.append(f"- universe: {self.config_manager.universe}")
             content_lines.append("")
             
             # 进度统计
@@ -173,6 +173,12 @@ class NotificationService:
             if not self.server_secret:
                 return False
             
+            # 过滤不需要发送微信通知的错误类型
+            if self._should_skip_error_notification(error_message):
+                if self.logger:
+                    self.logger.info(f"📱 跳过错误通知: {error_type} (技术性错误，不发送微信)")
+                return False
+            
             title = f"❌ 因子挖掘错误 - {error_type}"
             
             content_lines = [f"**因子挖掘错误报告:**"]
@@ -185,7 +191,7 @@ class NotificationService:
                 content_lines.append(f"- 挖掘阶段: 第{stage}阶")
                 
             content_lines.append(f"- 地区: {self.config_manager.region}")
-            content_lines.append(f"- 宇宙: {self.config_manager.universe}")
+            content_lines.append(f"- universe: {self.config_manager.universe}")
             content_lines.append("")
             content_lines.append(f"- 错误时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             
@@ -213,6 +219,45 @@ class NotificationService:
                 self.logger.error(f"📱 发送错误通知时出错: {e}")
             return False
     
+    def _should_skip_error_notification(self, error_message: str) -> bool:
+        """判断是否应该跳过错误通知
+        
+        Args:
+            error_message: 错误消息
+            
+        Returns:
+            bool: 是否跳过通知
+        """
+        # 定义不需要发送微信通知的错误关键词
+        skip_keywords = [
+            "会话cookies无效",
+            "SessionKeeper状态",
+            "会话和操作符初始化失败",
+            "Session",
+            "session",
+            "cookies",
+            "cookie",
+            "Cookie",  # 大写版本
+            "请确保SessionKeeper正在运行",
+            "获取会话失败",
+            "SessionClient不可用",
+            "会话失效",
+            "会话过期",
+            "unauthorized",
+            "authentication",
+            "login",
+            "登录失败",
+            "expired"  # 过期相关
+        ]
+        
+        # 检查错误消息是否包含跳过关键词（不区分大小写）
+        error_message_lower = error_message.lower()
+        for keyword in skip_keywords:
+            if keyword.lower() in error_message_lower:
+                return True
+                
+        return False
+    
     def send_stage_completion_notification(self, stage: int, dataset_id: str, 
                                          total_factors: int, execution_time: float) -> bool:
         """发送阶段完成通知
@@ -239,7 +284,7 @@ class NotificationService:
             content_lines.append(f"- 数据集: {dataset_id}")
             content_lines.append(f"- 挖掘阶段: 第{stage}阶")
             content_lines.append(f"- 地区: {self.config_manager.region}")
-            content_lines.append(f"- 宇宙: {self.config_manager.universe}")
+            content_lines.append(f"- universe: {self.config_manager.universe}")
             content_lines.append("")
             
             content_lines.append(f"**执行统计:**")

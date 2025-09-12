@@ -4,7 +4,7 @@
 
 import os
 from pathlib import Path
-from machine_lib_ee import load_digging_config
+from lib.config_utils import load_digging_config
 from config import RECORDS_PATH
 
 

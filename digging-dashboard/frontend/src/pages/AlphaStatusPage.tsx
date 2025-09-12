@@ -489,14 +489,33 @@ const AlphaStatusPage: React.FC = () => {
             <BarChartOutlined />
           </Space>
         ) as any,
-        dataIndex: 'correlation_value',
-        key: 'correlation_value',
+        dataIndex: 'self_corr',
+        key: 'self_corr',
         width: 120,
         sorter: true, // 启用全局排序
-        sortOrder: sortField === 'correlation_value' ? sortOrder : null,
+        sortOrder: sortField === 'self_corr' ? sortOrder : null,
         showSorterTooltip: false,
         render: (value: number) => (
           <Text strong style={{ color: value < 0.7 ? '#52c41a' : '#ff4d4f' }}>
+            {value?.toFixed(4) || '-'}
+          </Text>
+        ),
+      },
+      {
+        title: (
+        <Space>
+          Power Pool Correlation
+          <ThunderboltOutlined />
+        </Space>
+        ) as any,
+        dataIndex: 'prod_corr',
+        key: 'prod_corr',
+        width: 120,
+        sorter: true, // 启用全局排序
+        sortOrder: sortField === 'prod_corr' ? sortOrder : null,
+        showSorterTooltip: false,
+        render: (value: number) => (
+          <Text strong style={{ color: value < 0.5 ? '#52c41a' : '#ff4d4f' }}>
             {value?.toFixed(4) || '-'}
           </Text>
         ),

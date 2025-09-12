@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 会话客户端 - 从数据库获取有效cookies创建会话
-作者：Assistant
+作者：e.e.
 日期：2025.09.06
 
 核心功能：
@@ -103,34 +103,53 @@ class SessionClient:
         """测试会话是否可用"""
         try:
             response = session.get('https://api.worldquantbrain.com/users/self', timeout=10)
-            return response.status_code == 200
-        except Exception:
+            if response.status_code == 200:
+                return True
+            else:
+                logger.warning(f"⚠️ 会话测试失败: HTTP {response.status_code}")
+                return False
+        except Exception as e:
+            logger.warning(f"⚠️ 会话测试异常: {e}")
             return False
     
-    def get_session(self) -> requests.Session:
+    def get_session(self, max_retries: int = 3, retry_delay: float = 2.0) -> requests.Session:
         """获取有效的会话对象（主要接口）"""
-        try:
-            # 1. 从数据库加载cookies
-            cookies_data = self.load_cookies_from_database()
-            if not cookies_data:
-                raise Exception("未找到有效的会话cookies，请确保SessionKeeper正在运行")
-            
-            # 2. 检查cookies是否过期
-            if not self.is_cookies_valid(cookies_data):
-                raise Exception("会话cookies已过期，请等待SessionKeeper自动刷新")
-            
-            # 3. 创建会话对象
-            session = self.create_session_from_cookies(cookies_data)
-            
-            # 4. 测试会话有效性
-            if not self.test_session(session):
-                raise Exception("会话cookies无效，请检查SessionKeeper状态")
-            
-            return session
-            
-        except Exception as e:
-            logger.error(f"❌ 获取会话失败: {e}")
-            raise e
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                # 1. 从数据库加载cookies
+                cookies_data = self.load_cookies_from_database()
+                if not cookies_data:
+                    raise Exception("未找到有效的会话cookies，请确保SessionKeeper正在运行")
+                
+                # 2. 检查cookies是否过期
+                if not self.is_cookies_valid(cookies_data):
+                    raise Exception("会话cookies已过期，请等待SessionKeeper自动刷新")
+                
+                # 3. 创建会话对象
+                session = self.create_session_from_cookies(cookies_data)
+                
+                # 4. 测试会话有效性
+                if not self.test_session(session):
+                    raise Exception("会话cookies无效，请检查SessionKeeper状态")
+                
+                # 成功获取会话
+                if attempt > 0:
+                    logger.info(f"✅ 会话获取成功 (重试 {attempt} 次后)")
+                
+                return session
+                
+            except Exception as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    logger.warning(f"⚠️ 会话获取失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                    logger.info(f"⏳ 等待 {retry_delay} 秒后重试...")
+                    time.sleep(retry_delay)
+                else:
+                    logger.error(f"❌ 获取会话失败 (已重试 {max_retries} 次): {e}")
+        
+        raise last_exception
     
     def get_cookies(self) -> Optional[requests.cookies.RequestsCookieJar]:
         """获取cookies对象（用于异步操作）"""

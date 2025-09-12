@@ -4,7 +4,7 @@ Alpha标记器 - 负责Alpha颜色标记和API更新
 
 import time
 from typing import List
-from machine_lib_ee import set_alpha_properties, batch_set_alpha_properties
+from lib.alpha_manager import set_alpha_properties, batch_set_alpha_properties
 
 
 class AlphaMarker:

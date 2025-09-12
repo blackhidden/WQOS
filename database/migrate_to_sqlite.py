@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-作者：基于WorldQuant因子系统
-日期：2025.01.15
+作者：e.e.
+日期：2025.09.10
 功能：将现有文本文件数据迁移到SQLite数据库
 """
 
@@ -53,6 +53,8 @@ class FactorDataMigrator:
             # 如果所有表都存在，跳过创建
             if all(table in existing_tables for table in required_tables):
                 print("✅ 数据库表结构已存在，跳过创建")
+                # 检查并添加复查标记列
+                self._add_recheck_flag_if_missing()
                 return True
             
             # 读取并修改 schema.sql，添加 IF NOT EXISTS
@@ -74,10 +76,51 @@ class FactorDataMigrator:
             self.conn.executescript(schema_sql)
             self.conn.commit()
             print("✅ 数据库表结构创建成功")
+            
+            # 检查并添加复查标记列
+            self._add_recheck_flag_if_missing()
             return True
         except Exception as e:
             print(f"❌ 创建表结构失败: {e}")
             return False
+            
+    def _add_recheck_flag_if_missing(self):
+        """检查并添加复查标记列（如果缺失）"""
+        try:
+            # 检查recheck_flag列是否存在
+            cursor = self.conn.cursor()
+            cursor.execute("PRAGMA table_info(submitable_alphas)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'recheck_flag' not in columns:
+                print("🔄 添加复查标记列...")
+                
+                # 添加复查标记列
+                self.conn.execute("ALTER TABLE submitable_alphas ADD COLUMN recheck_flag BOOLEAN DEFAULT FALSE")
+                
+                # 创建索引
+                self.conn.execute("CREATE INDEX IF NOT EXISTS idx_submitable_recheck_flag ON submitable_alphas(recheck_flag)")
+                self.conn.execute("CREATE INDEX IF NOT EXISTS idx_submitable_region_recheck ON submitable_alphas(region, recheck_flag)")
+                
+                # 更新数据库版本
+                self.conn.execute("""
+                    INSERT OR REPLACE INTO system_config (config_key, config_value, description, updated_at)
+                    VALUES ('db_version', '1.1', '数据库版本', datetime('now'))
+                """)
+                
+                # 记录迁移
+                self.conn.execute("""
+                    INSERT OR REPLACE INTO system_config (config_key, config_value, description)
+                    VALUES ('recheck_flag_migration', datetime('now'), '添加复查标记列的迁移时间')
+                """)
+                
+                self.conn.commit()
+                print("✅ 复查标记列添加成功")
+            else:
+                print("✅ 复查标记列已存在")
+                
+        except Exception as e:
+            print(f"❌ 添加复查标记列失败: {e}")
             
     def parse_filename_info(self, filename):
         """解析文件名获取数据集和地区信息"""

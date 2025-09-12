@@ -71,7 +71,7 @@ class PnLManager:
         """获取指定alpha的PnL数据"""
         try:
             url = f"https://api.worldquantbrain.com/alphas/{alpha_id}/recordsets/pnl"
-            response = self.session_service.wait_get(url)
+            response = self.session_service.wait_get(url, message=f"获取Alpha {alpha_id} pnl数据")
             
             if response.status_code != 200:
                 raise Exception(f"HTTP {response.status_code}: {response.text}")
@@ -104,6 +104,39 @@ class PnLManager:
             
         except Exception as e:
             raise Exception(f"获取Alpha {alpha_id} PnL数据失败: {e}")
+    
+    def get_alpha_daily_pnl(self, alpha_id: str) -> pd.Series:
+        """获取指定alpha的每日PnL数据（用于质量检查）"""
+        try:
+            url = f"https://api.worldquantbrain.com/alphas/{alpha_id}/recordsets/daily-pnl"
+            response = self.session_service.wait_get(url, message=f"获取Alpha {alpha_id} daily-pnl数据")
+            
+            if response.status_code != 200:
+                raise Exception(f"HTTP {response.status_code}: {response.text}")
+            
+            data = response.json()
+            
+            # 检查响应数据结构
+            if 'records' not in data or 'schema' not in data:
+                raise Exception(f"响应数据格式错误: {data}")
+            
+            if not data['records']:
+                self.logger.warning(f"⚠️ Alpha {alpha_id} 没有daily-pnl数据")
+                return pd.Series()
+            
+            # 构建DataFrame
+            columns = [item['name'] for item in data['schema']['properties']]
+            df = pd.DataFrame(data['records'], columns=columns)
+            
+            # 设置索引和返回Series
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.set_index('date').sort_index()
+            
+            return df['pnl']
+            
+        except Exception as e:
+            self.logger.error(f"❌ 获取Alpha {alpha_id} daily-pnl数据失败: {e}")
+            return pd.Series()
     
     def get_alpha_pnls(self, alphas: List[Dict], 
                       alpha_pnls: Optional[pd.DataFrame] = None,

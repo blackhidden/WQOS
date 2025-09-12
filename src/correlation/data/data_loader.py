@@ -50,7 +50,7 @@ class DataLoader:
             url = f"https://api.worldquantbrain.com/users/self/alphas?stage=OS&limit={limit}&offset={offset}&order=-dateSubmitted"
             
             try:
-                response = self.session_service.wait_get(url)
+                response = self.session_service.wait_get(url, message=f"获取已提交alpha列表")
                 res = response.json()
                 
                 if offset == 0:

@@ -17,28 +17,28 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 try:
-    from machine_lib_ee import init_session
-    from session_client import get_session, get_session_cookies
+    from lib.operator_manager import init_session
+    from sessions.session_client import get_session, get_session_cookies
 except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from machine_lib_ee import init_session
-    from session_client import get_session, get_session_cookies
+    from lib.operator_manager import init_session
+    from sessions.session_client import get_session, get_session_cookies
 
 
 class BaseExecutor(ABC):
     """基础执行器 - 定义所有执行器的共同接口和功能"""
     
-    def __init__(self, config_manager, simulation_engine, progress_tracker, notification_service):
+    def __init__(self, config_manager, simulation_executor, progress_tracker, notification_service):
         """初始化基础执行器
         
         Args:
             config_manager: 配置管理器实例
-            simulation_engine: 模拟执行引擎实例
+            simulation_executor: 统一模拟执行器实例
             progress_tracker: 进度跟踪器实例
             notification_service: 通知服务实例
         """
         self.config_manager = config_manager
-        self.simulation_engine = simulation_engine
+        self.simulation_executor = simulation_executor  # 使用统一执行器
         self.progress_tracker = progress_tracker
         self.notification_service = notification_service
         
@@ -55,8 +55,8 @@ class BaseExecutor(ABC):
         self.logger = logger
         
         # 传递给所有服务
-        if self.simulation_engine:
-            self.simulation_engine.set_logger(logger)
+        if self.simulation_executor:
+            self.simulation_executor.set_logger(logger)
         if self.progress_tracker:
             self.progress_tracker.set_logger(logger)
         if self.notification_service:
@@ -136,7 +136,7 @@ class BaseExecutor(ABC):
             self.logger.info(f"🚀 第{stage}阶因子挖掘启动")
             self.logger.info(f"  🎯 数据集: {self.current_dataset}")
             self.logger.info(f"  🌍 地区: {self.config_manager.region}")
-            self.logger.info(f"  🎛️ 宇宙: {self.config_manager.universe}")
+            self.logger.info(f"  🎛️ universe: {self.config_manager.universe}")
             self.logger.info(f"  ⚡ 并发数: {self.config_manager.get_n_jobs_config()}")
             self.logger.info(f"{'='*80}")
     

@@ -4,7 +4,7 @@
 
 import time
 import requests
-from session_client import get_session
+from sessions.session_client import get_session
 
 
 class SessionService:
@@ -29,7 +29,7 @@ class SessionService:
                 return False
         return True
     
-    def wait_get(self, url: str, max_retries: int = 10) -> requests.Response:
+    def wait_get(self, url: str, max_retries: int = 10, message: str = None) -> requests.Response:
         """发送带有重试机制的GET请求"""
         retries = 0
         while retries < max_retries:
@@ -40,7 +40,7 @@ class SessionService:
                     retry_after_num = float(retry_after)
                     if retry_after_num == 0:
                         break
-                    self.logger.info(f"⏰ API限制，等待 {retry_after_num} 秒...")
+                    self.logger.info(f"⏰ API限制，等待 {retry_after_num} 秒...") if message is None else self.logger.info(f"⏰ {message}，等待 {retry_after_num} 秒...")
                     time.sleep(retry_after_num)
                 except (ValueError, TypeError):
                     # 如果Retry-After头无法解析，跳出内循环

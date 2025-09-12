@@ -39,7 +39,7 @@ CREATE TABLE submitable_alphas (
     author VARCHAR(100),                       -- 作者
     instrument_type VARCHAR(20),               -- 工具类型
     region VARCHAR(10),                        -- 地区
-    universe VARCHAR(20),                      -- 宇宙
+    universe VARCHAR(20),                      -- universe
     delay INTEGER,                             -- 延迟
     decay INTEGER,                             -- 衰减
     neutralization VARCHAR(50),                -- 中性化
@@ -88,6 +88,7 @@ CREATE TABLE submitable_alphas (
     aggressive_mode BOOLEAN,                   -- 激进模式
     self_corr REAL,                            -- 自相关
     prod_corr REAL,                            -- 生产相关
+    recheck_flag BOOLEAN DEFAULT FALSE,        -- 复查标记
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -126,7 +127,7 @@ CREATE TABLE system_config (
 -- 插入默认配置
 INSERT INTO system_config (config_key, config_value, description) VALUES 
 ('start_date', '2025-07-27', '因子挖掘开始日期'),
-('db_version', '1.0', '数据库版本'),
+('db_version', '1.1', '数据库版本'),
 ('migration_date', datetime('now'), '数据迁移日期');
 
 -- ====================================================================
@@ -145,6 +146,8 @@ CREATE INDEX idx_checked_date ON checked_alphas(checked_at);
 CREATE INDEX idx_submitable_region_universe ON submitable_alphas(region, universe);
 CREATE INDEX idx_submitable_sharpe ON submitable_alphas(sharpe);
 CREATE INDEX idx_submitable_created ON submitable_alphas(created_at);
+CREATE INDEX idx_submitable_recheck_flag ON submitable_alphas(recheck_flag);
+CREATE INDEX idx_submitable_region_recheck ON submitable_alphas(region, recheck_flag);
 
 -- 失败表达式索引
 CREATE INDEX idx_failed_expressions_dataset_region_step ON failed_expressions(dataset_id, region, step);

@@ -16,15 +16,15 @@ from typing import Optional
 
 # 导入现有模块
 try:
-    from machine_lib_ee import load_digging_config
-    from tag_generator import TagConfig
+    from lib.config_utils import load_digging_config
+    from utils.tag_generator import TagConfig
     from config import RECORDS_PATH
     from database.db_manager import FactorDatabaseManager
     from database.partitioned_db_manager import PartitionedFactorManager
 except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from machine_lib_ee import load_digging_config
-    from tag_generator import TagConfig
+    from lib.config_utils import load_digging_config
+    from utils.tag_generator import TagConfig
     from config import RECORDS_PATH
     from database.db_manager import FactorDatabaseManager
     from database.partitioned_db_manager import PartitionedFactorManager
@@ -58,6 +58,11 @@ class ConfigManager:
         # 推荐字段配置
         self.use_recommended_fields = self.config.get('use_recommended_fields', True)
         
+        # 多模拟配置选项（默认关闭，通过参数启用）
+        self.enable_multi_simulation = False
+        self.multi_children_limit = 10  # 固定为10，吃满API上限
+        self.multi_batch_limit = 8      # 默认值，将被n_jobs覆盖
+        
         # 验证推荐字段配置
         if self.use_recommended_fields:
             if not self.recommended_name:
@@ -90,7 +95,7 @@ class ConfigManager:
         self.use_partitioned_db = self.config.get('use_partitioned_db', True)
         
         # 通知相关配置
-        self.notification_thresholds = [95.0, 98.0, 99.0, 99.5]  # 完成度阈值，触发通知
+        self.notification_thresholds = [95.0]  # 完成度阈值，只在>95%时触发一次通知
         
         # 运行时参数
         self._n_jobs = None  # 运行时设置的并发数
@@ -125,7 +130,7 @@ class ConfigManager:
     
     def generate_tag(self, dataset_id: str, step: int) -> str:
         """生成新格式的tag名称"""
-        from tag_generator import TagGenerator
+        from utils.tag_generator import TagGenerator
         
         # 更新tag配置中的dataset_id
         tag_config = TagConfig(
@@ -165,11 +170,33 @@ class ConfigManager:
         except (json.JSONDecodeError, TypeError) as e:
             raise ValueError(f"推荐字段解析失败: {e}，请检查配置文件中的recommended_fields格式是否正确")
     
+    def set_multi_simulation_config(self, enable_multi_simulation: bool = False,
+                                   multi_children_limit: int = 10,
+                                   multi_batch_limit: int = 8):
+        """动态设置多模拟配置
+        
+        Args:
+            enable_multi_simulation: 是否启用多模拟模式
+            multi_children_limit: 每个多模拟包含的子模拟数量 (2-10)
+            multi_batch_limit: 同时执行的多模拟数量 (1-20)
+        """
+        # 验证参数
+        if enable_multi_simulation:
+            if not (2 <= multi_children_limit <= 10):
+                raise ValueError("多模拟模式下，每个多模拟包含的子模拟数量必须在2-10之间")
+            if not (1 <= multi_batch_limit <= 20):
+                raise ValueError("多模拟模式下，同时执行的多模拟数量必须在1-20之间")
+        
+        # 设置配置
+        self.enable_multi_simulation = enable_multi_simulation
+        self.multi_children_limit = multi_children_limit
+        self.multi_batch_limit = multi_batch_limit
+    
     def log_config_summary(self, logger):
         """记录配置摘要到日志"""
         logger.info(f"🚀 因子挖掘配置摘要:")
         logger.info(f"  🌍 地区: {self.region}")
-        logger.info(f"  🎛️ 宇宙: {self.universe}")
+        logger.info(f"  🎛️ universe: {self.universe}")
         logger.info(f"  ⏱️ 延迟: {self.delay}")
         logger.info(f"  📉 衰减: {self.decay}")
         logger.info(f"  🏷️ 使用推荐字段: {self.use_recommended_fields}")
@@ -180,3 +207,12 @@ class ConfigManager:
         logger.info(f"  🗄️ 使用分库: {self.use_partitioned_db}")
         logger.info(f"  📊 当前数据集: {self.current_dataset}")
         logger.info(f"  📱 通知阈值: {self.notification_thresholds}%")
+        
+        # 多模拟配置摘要
+        if self.enable_multi_simulation:
+            logger.info(f"  🔥 多模拟模式: 启用")
+            logger.info(f"  📊 子模拟数量: {self.multi_children_limit}")
+            logger.info(f"  🏊‍♂️ 并发多模拟: {self.multi_batch_limit}")
+            logger.info(f"  ⚡ 理论并发度: {self.multi_children_limit * self.multi_batch_limit} (vs 单模拟)")
+        else:
+            logger.info(f"  🚀 模拟模式: 单模拟")

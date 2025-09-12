@@ -22,7 +22,7 @@ try:
     original_cwd = os.getcwd()
     os.chdir(project_root)
     
-    from session_manager import get_session
+    from sessions.session_client import get_session
     
     # 恢复原始工作目录
     os.chdir(original_cwd)

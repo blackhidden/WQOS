@@ -18,15 +18,13 @@ from typing import List, Dict, Tuple
 from .base_executor import BaseExecutor
 
 try:
-    from machine_lib_ee import (
-        get_alphas, transform, get_group_second_order_factory
-    )
+    from lib.data_client import get_alphas
+    from lib.factor_generator import transform, get_group_second_order_factory
     from digging.utils.common_utils import get_filtered_operators
 except ImportError:
     sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-    from machine_lib_ee import (
-        get_alphas, transform, get_group_second_order_factory
-    )
+    from lib.data_client import get_alphas
+    from lib.factor_generator import transform, get_group_second_order_factory
     from digging.utils.common_utils import get_filtered_operators
 
 
@@ -45,13 +43,18 @@ class SecondOrderExecutor(BaseExecutor):
         """
         step1_tag = self.config_manager.generate_tag(self.current_dataset, 1)
         
+        # 计算最近一年的日期范围（end_date使用明天避免时差问题）
+        from datetime import datetime, timedelta
+        end_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+        
         # 获取符合条件的一阶因子
-        fo_tracker = get_alphas("2024-10-07", "2025-12-31",
+        fo_tracker = get_alphas(start_date, end_date,
                                0.75, 0.5, 100, 100,
                                self.config_manager.region, 
                                self.config_manager.universe, 
                                self.config_manager.delay, 
-                               "EQUITY",
+                               self.config_manager.instrument_type,
                                500, "track", tag=step1_tag)
         
         next_factors = fo_tracker.get('next', [])
@@ -133,11 +136,9 @@ class SecondOrderExecutor(BaseExecutor):
         stone_bag = []
         step2_tag = self.config_manager.generate_tag(self.current_dataset, 2)
         
-        # 执行模拟
-        await self.simulation_engine.simulate_multiple_alphas(
-            alpha_list, region_list, decay_list, delay_list,
-            step2_tag, self.config_manager.neutralization, stone_bag, 
-            self.config_manager.get_n_jobs_config()
+        # 执行模拟 - 传递规范tag
+        await self.simulation_executor.execute_batch(
+            alpha_list, self.current_dataset, stage=2, tags=[step2_tag]
         )
         
         return [{'alpha': alpha, 'tag': step2_tag} for alpha in alpha_list]
@@ -168,7 +169,7 @@ class SecondOrderExecutor(BaseExecutor):
                         self.logger.info(f"🔄 二阶挖掘持续等待一阶挖掘产生符合条件的因子...")
                         self.logger.info(f"💡 这是正常现象：二阶挖掘依赖一阶挖掘的输出，需要耐心等待")
                     
-                    await self.simulation_engine.sleep_with_countdown(3600, "等待一阶挖掘产生更多因子")
+                    await self.simulation_executor.sleep_with_countdown(3600, "等待一阶挖掘产生更多因子")
                     retry_count += 1
                     continue
                 
@@ -183,7 +184,7 @@ class SecondOrderExecutor(BaseExecutor):
                         self.logger.info(f"✅ 数据集 {self.current_dataset} 二阶挖掘当前批次已完成")
                         self.logger.info(f"🔄 继续监控一阶挖掘，等待新的符合条件因子...")
                     
-                    await self.simulation_engine.sleep_with_countdown(1800, "等待一阶挖掘产生新的符合条件因子")  # 30分钟
+                    await self.simulation_executor.sleep_with_countdown(1800, "等待一阶挖掘产生新的符合条件因子")  # 30分钟
                     retry_count += 1
                     continue
                 
@@ -198,7 +199,7 @@ class SecondOrderExecutor(BaseExecutor):
                 if self.logger:
                     self.logger.info(f"🔄 当前批次完成，继续监控一阶挖掘产生新的符合条件因子...")
                 
-                await self.simulation_engine.sleep_with_countdown(1800, "等待一阶挖掘产生新的符合条件因子")  # 30分钟
+                await self.simulation_executor.sleep_with_countdown(1800, "等待一阶挖掘产生新的符合条件因子")  # 30分钟
                 retry_count += 1
                 
             except KeyboardInterrupt:
@@ -211,7 +212,7 @@ class SecondOrderExecutor(BaseExecutor):
                     import traceback
                     traceback.print_exc()
                 # 等待一段时间后重试
-                await self.simulation_engine.sleep_with_countdown(300, "异常恢复等待")
+                await self.simulation_executor.sleep_with_countdown(300, "异常恢复等待")
                 retry_count += 1
         
         return all_results
@@ -236,8 +237,6 @@ class SecondOrderExecutor(BaseExecutor):
             # 2. 运行持续监控模式
             results = await self.run_continuous_monitoring()
             
-            # 发送完成通知
-            self.send_completion_notification(stage, len(results))
             
             self.log_execution_end(stage, results, success=True)
             return results

@@ -16,6 +16,7 @@ from app.api.logs import router as logs_router
 from app.api.websocket import router as websocket_router
 from app.api.scripts import router as scripts_router
 from app.api.alphas import router as alphas_router
+from app.api.dataset import router as dataset_router
 from app.core.exceptions import DashboardException
 from app.db.database import create_tables
 from app.db import worldquant_config  # 导入WorldQuant配置模型
@@ -209,6 +210,7 @@ app.include_router(process_router, prefix="/api/process", tags=["进程控制"])
 app.include_router(scripts_router, prefix="/api/scripts", tags=["脚本管理"])
 app.include_router(logs_router, prefix="/api/logs", tags=["日志管理"])
 app.include_router(alphas_router, prefix="/api/alphas", tags=["Alpha管理"])
+app.include_router(dataset_router, prefix="/api", tags=["数据集管理"])
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 

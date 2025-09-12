@@ -64,8 +64,18 @@ export const startProcessAsync = createAsyncThunk(
 
 export const startProcessFromTemplateAsync = createAsyncThunk(
   'process/startFromTemplate',
-  async (params: { templateId: number; stage: number; n_jobs: number }) => {
-    const response = await processAPI.startProcessFromTemplate(params.templateId, params.stage, params.n_jobs);
+  async (params: { 
+    templateId: number; 
+    stage: number; 
+    n_jobs: number;
+    enable_multi_simulation?: boolean;
+  }) => {
+    const response = await processAPI.startProcessFromTemplate(
+      params.templateId, 
+      params.stage, 
+      params.n_jobs,
+      params.enable_multi_simulation
+    );
     return response.data;
   }
 );

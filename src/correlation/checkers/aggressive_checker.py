@@ -71,22 +71,22 @@ class AggressiveChecker(BaseChecker):
                 time_span_days = (pd.to_datetime(alpha_rets.index).max() - pd.to_datetime(alpha_rets.index).min()).days
                 time_span_years = time_span_days / 365.25
                 
-                self.logger.info(f"    🔍 Alpha {alpha_id} 激进模式检测详情:")
-                self.logger.info(f"      📊 数据长度: {len(alpha_rets)}天 (约{time_span_years:.1f}年)")
-                self.logger.info(f"      📊 时间分割: {split_ratio*100:.0f}%早期({len(early_rets)}天) / {(1-split_ratio)*100:.0f}%近期({len(recent_rets)}天)")
-                self.logger.info(f"      📊 早期零值比例: {early_zero_ratio:.1%} (需要>60%)")
-                self.logger.info(f"      📈 近期标准差: {recent_std:.6f} (需要>0)")
-                self.logger.info(f"      📈 早期标准差: {early_std:.6f}")
-                self.logger.info(f"      📈 近期累积收益: {recent_cumulative.iloc[-1]:.2f} (需要>开始值{recent_cumulative.iloc[0]:.2f})")
-                self.logger.info(f"      📊 活动度比较: 近期{recent_abs_mean:.6f} vs 早期{early_abs_mean:.6f} (需要>1.5倍)")
-                self.logger.info(f"      📊 标准差比较: 近期{recent_std:.6f} vs 早期{early_std:.6f} (需要>1.5倍)")
-                self.logger.info(f"      🎯 检测条件:")
-                self.logger.info(f"        - 早期低活动: {early_low_activity} ({early_zero_ratio:.1%} > 60%)")
-                self.logger.info(f"        - 近期有活动: {recent_has_activity}")
-                self.logger.info(f"        - 上涨趋势: {recent_upward_trend}")
-                self.logger.info(f"        - 活动度增加: {recent_more_active}")
-                self.logger.info(f"        - 波动性增加: {recent_std_increase}")
-                self.logger.info(f"      🏁 最终结果: {'✅ 激进模式' if is_aggressive_pattern else '❌ 非激进模式'}")
+                self.logger.debug(f"    🔍 Alpha {alpha_id} 激进模式检测详情:")
+                self.logger.debug(f"      📊 数据长度: {len(alpha_rets)}天 (约{time_span_years:.1f}年)")
+                self.logger.debug(f"      📊 时间分割: {split_ratio*100:.0f}%早期({len(early_rets)}天) / {(1-split_ratio)*100:.0f}%近期({len(recent_rets)}天)")
+                self.logger.debug(f"      📊 早期零值比例: {early_zero_ratio:.1%} (需要>60%)")
+                self.logger.debug(f"      📈 近期标准差: {recent_std:.6f} (需要>0)")
+                self.logger.debug(f"      📈 早期标准差: {early_std:.6f}")
+                self.logger.debug(f"      📈 近期累积收益: {recent_cumulative.iloc[-1]:.2f} (需要>开始值{recent_cumulative.iloc[0]:.2f})")
+                self.logger.debug(f"      📊 活动度比较: 近期{recent_abs_mean:.6f} vs 早期{early_abs_mean:.6f} (需要>1.5倍)")
+                self.logger.debug(f"      📊 标准差比较: 近期{recent_std:.6f} vs 早期{early_std:.6f} (需要>1.5倍)")
+                self.logger.debug(f"      🎯 检测条件:")
+                self.logger.debug(f"        - 早期低活动: {early_low_activity} ({early_zero_ratio:.1%} > 60%)")
+                self.logger.debug(f"        - 近期有活动: {recent_has_activity}")
+                self.logger.debug(f"        - 上涨趋势: {recent_upward_trend}")
+                self.logger.debug(f"        - 活动度增加: {recent_more_active}")
+                self.logger.debug(f"        - 波动性增加: {recent_std_increase}")
+                self.logger.debug(f"      🏁 最终结果: {'✅ 激进模式' if is_aggressive_pattern else '❌ 非激进模式'}")
             
             return is_aggressive_pattern
             

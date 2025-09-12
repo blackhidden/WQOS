@@ -203,3 +203,103 @@ async def broadcast_log_message(message: dict):
 async def broadcast_process_status(status: dict):
     """广播进程状态"""
     await manager.broadcast(json.dumps(status), "process")
+
+
+@router.websocket("/dataset-fields-progress")
+async def websocket_dataset_fields_progress_endpoint(
+    websocket: WebSocket,
+    token: str = Query(...),
+    task_id: str = Query(...)
+):
+    """数据集字段获取进度WebSocket连接"""
+    # TODO: 验证token
+    
+    await manager.connect(websocket, 0, f"dataset-progress-{task_id}")
+    
+    try:
+        # 发送欢迎消息
+        welcome_message = {
+            "type": "connection",
+            "message": f"数据集字段获取进度监控已连接 - 任务ID: {task_id}",
+            "timestamp": asyncio.get_event_loop().time(),
+            "task_id": task_id
+        }
+        await manager.send_personal_message(json.dumps(welcome_message), websocket)
+        
+        # 导入progress store
+        from app.api.dataset import progress_store
+        
+        # 定期发送进度更新
+        while True:
+            try:
+                # 获取当前进度
+                progress_info = progress_store.get(task_id)
+                if progress_info:
+                    # 转换data为字典（如果存在）
+                    data = progress_info.get('data')
+                    serializable_data = None
+                    if data is not None:
+                        try:
+                            # 如果是Pydantic模型，转换为字典
+                            if hasattr(data, 'dict'):
+                                serializable_data = data.dict()
+                            else:
+                                serializable_data = data
+                        except Exception:
+                            serializable_data = None
+                    
+                    progress_message = {
+                        "type": "progress_update",
+                        "task_id": task_id,
+                        "status": progress_info['status'],
+                        "progress": progress_info['progress'],
+                        "message": progress_info['message'],
+                        "details": progress_info.get('details'),
+                        "data": serializable_data,
+                        "timestamp": asyncio.get_event_loop().time()
+                    }
+                    await manager.send_personal_message(json.dumps(progress_message), websocket)
+                    
+                    # 如果任务完成或失败，发送最终消息并断开连接
+                    if progress_info['status'] in ['completed', 'failed']:
+                        final_message = {
+                            "type": "task_finished",
+                            "task_id": task_id,
+                            "status": progress_info['status'],
+                            "data": serializable_data,  # 包含序列化后的数据
+                            "timestamp": asyncio.get_event_loop().time()
+                        }
+                        await manager.send_personal_message(json.dumps(final_message), websocket)
+                        break
+                else:
+                    # 任务不存在，可能已经被清理
+                    error_message = {
+                        "type": "task_not_found",
+                        "task_id": task_id,
+                        "message": "任务不存在或已被清理",
+                        "timestamp": asyncio.get_event_loop().time()
+                    }
+                    await manager.send_personal_message(json.dumps(error_message), websocket)
+                    break
+                
+                # 等待1秒后发送下一次更新（比轮询更频繁）
+                await asyncio.sleep(1)
+                
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                break
+    
+    finally:
+        manager.disconnect(websocket)
+
+
+async def broadcast_dataset_progress(task_id: str, progress_data: dict):
+    """广播数据集字段获取进度更新"""
+    message = {
+        "type": "progress_broadcast",
+        "task_id": task_id,
+        **progress_data,
+        "timestamp": asyncio.get_event_loop().time()
+    }
+    await manager.broadcast(json.dumps(message), f"dataset-progress-{task_id}")
