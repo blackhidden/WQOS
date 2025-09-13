@@ -512,19 +512,21 @@ class OptimizedChecker:
             end_date_time = end_time_obj.strftime('%H:%M:%S')
             
             if tomorrow.date() == today:
-                # start_date+1是今天，使用start_date+2
+                # start_date+1等于今天，使用start_date+2，时间为当前时间前一个小时
                 end_date = (start_date_obj + timedelta(days=2)).strftime('%Y-%m-%d')
                 self.logger.info(f"📅 检测到start_date+1({tomorrow.strftime('%Y-%m-%d')})是今天，使用start_date+2作为end_date")
-                # 如果是明天，使用23:59:59避免遗漏
-                end_date_time = "23:59:59"
+                
+            elif tomorrow.date() > today:
+                # start_date+1大于今天，使用start_date，时间为当前时间前一个小时
+                end_date = start_date_obj.strftime('%Y-%m-%d')
+                self.logger.info(f"📅 检测到start_date+1({tomorrow.strftime('%Y-%m-%d')})大于今天，使用start_date作为end_date")
+                
             else:
                 # start_date+1不是今天，使用start_date+1
                 end_date = tomorrow.strftime('%Y-%m-%d')
                 self.logger.info(f"📅 start_date+1({tomorrow.strftime('%Y-%m-%d')})不是今天，使用start_date+1作为end_date")
-                # 如果是今天，使用当前时间前一小时
                 if tomorrow.date() < today:
-                    # 如果查询的是过去的日期，使用23:59:59
-                    end_date_time = "23:59:59"
+                    end_date_time = "00:00:00"
             
             self.logger.info(f"📅 查询时间范围: {start_date} 00:00:00 到 {end_date} {end_date_time} (上海时区)")
             
