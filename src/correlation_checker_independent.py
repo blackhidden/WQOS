@@ -63,11 +63,46 @@ class RefactoredCorrelationChecker:
         """初始化会话"""
         return self.session_service.initialize_session()
     
+    def _ensure_data_loaded_and_handle_recheck(self, context: str = "", **kwargs):
+        """统一的数据加载和新Alpha复查处理方法
+        
+        Args:
+            context: 上下文描述（用于日志）
+            **kwargs: 传递给data_loader.ensure_data_loaded的参数
+        
+        Returns:
+            tuple: (success, has_new_alphas, recheck_flag_set)
+        """
+        # 执行数据加载
+        success, has_new_alphas = self.data_loader.ensure_data_loaded(**kwargs)
+        
+        if not success:
+            return success, has_new_alphas, False
+            
+        # 如果检测到新Alpha，自动设置复查标记
+        recheck_flag_set = False
+        if has_new_alphas:
+            context_desc = f"({context})" if context else ""
+            self.logger.info(f"🔄 检测到新提交的Alpha{context_desc}，触发复查标记...")
+            
+            # 获取所有受影响的区域
+            affected_regions = list(self.data_loader.os_alpha_ids.keys()) if self.data_loader.os_alpha_ids else []
+            if affected_regions:
+                self.database_updater.set_recheck_flags(affected_regions)
+                recheck_flag_set = True
+            else:
+                self.logger.warning(f"⚠️ 未找到受影响的区域，跳过复查标记设置")
+        
+        return success, has_new_alphas, recheck_flag_set
+    
     def run_single_check_cycle(self):
         """执行单次检查周期"""
         try:
-            # 加载数据并检测是否有新Alpha（在持续监控模式下总是检查新Alpha）
-            success, has_new_alphas = self.data_loader.ensure_data_loaded(force_check_new=True)
+            # 统一的数据加载和新Alpha复查处理（在持续监控模式下总是检查新Alpha）
+            success, has_new_alphas, recheck_flag_set = self._ensure_data_loaded_and_handle_recheck(
+                context="主检查流程", 
+                force_check_new=True
+            )
             if not success:
                 self.logger.error(f"❌ 无法加载数据，跳过本次检查")
                 return False
@@ -75,12 +110,8 @@ class RefactoredCorrelationChecker:
             # 检查是否有需要复查的Alpha
             recheck_alphas = self.database_updater.get_alphas_for_recheck()
             
-            # 如果有新提交的Alpha，设置复查标记（替代重置为YELLOW）
-            if has_new_alphas:
-                # 获取所有受影响的区域
-                affected_regions = list(self.data_loader.os_alpha_ids.keys())
-                self.database_updater.set_recheck_flags(affected_regions)
-                # 重新获取需要复查的Alpha
+            # 如果设置了复查标记，重新获取需要复查的Alpha
+            if recheck_flag_set:
                 recheck_alphas = self.database_updater.get_alphas_for_recheck()
             
             # 决定检查模式和对象

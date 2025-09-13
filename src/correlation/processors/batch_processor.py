@@ -34,7 +34,7 @@ class BatchProcessor:
         self.aggressive_checker = AggressiveChecker(config_manager, session_service, data_loader, logger)
     
     def _preload_correlation_data(self, check_type: str) -> Dict:
-        """预加载相关性数据，避免重复加载"""
+        """预加载相关性数据，仅加载本地数据不检查新Alpha"""
         try:
             self.logger.info(f"  📂 预加载{check_type}数据...")
             
@@ -44,17 +44,18 @@ class BatchProcessor:
             old_os_alpha_ids = self.data_loader.os_alpha_ids
             old_os_alpha_rets = self.data_loader.os_alpha_rets
             
-            # 重置状态并加载特定数据
+            # 重置状态并仅加载本地数据（不检查新Alpha）
             self.data_loader.current_check_type = None
             self.data_loader.data_loaded = False
-            success, _ = self.data_loader.ensure_data_loaded(check_type=check_type)
+            success, has_cached_data = self.data_loader.load_local_data_only(check_type=check_type)
             
             if success:
                 # 保存加载的数据
                 data = {
                     'os_alpha_ids': self.data_loader.os_alpha_ids.copy() if self.data_loader.os_alpha_ids else {},
                     'os_alpha_rets': self.data_loader.os_alpha_rets.copy() if self.data_loader.os_alpha_rets is not None else None,
-                    'threshold': self.config.ppac_threshold if check_type == "PPAC" else self.config.correlation_threshold
+                    'threshold': self.config.ppac_threshold if check_type == "PPAC" else self.config.correlation_threshold,
+                    'has_cached_data': has_cached_data  # 传递缓存数据标记
                 }
                 self.logger.info(f"  ✅ {check_type}数据预加载完成")
             else:

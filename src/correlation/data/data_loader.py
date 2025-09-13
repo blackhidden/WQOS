@@ -221,6 +221,41 @@ class DataLoader:
             traceback.print_exc()
             return False, False
     
+    def load_local_data_only(self, check_type=None, force_reload=False):
+        """仅加载本地数据，不进行新Alpha检查和下载
+        
+        Args:
+            check_type: 数据类型 ("PPAC" 或 "SelfCorr")
+            force_reload: 是否强制重新加载
+            
+        Returns:
+            tuple: (success, has_cached_data)
+        """
+        # 如果数据已加载且类型匹配，直接返回
+        if self.data_loaded and not force_reload and self.current_check_type == check_type:
+            self.logger.debug(f"📊 使用已加载的{check_type if check_type else '全部'}数据")
+            return True, True
+        
+        self.logger.info(f"📂 仅加载本地{check_type if check_type else '全部'}数据（跳过新Alpha检查）...")
+        
+        try:
+            # 直接加载本地数据，不进行新Alpha检查
+            self.os_alpha_ids, self.os_alpha_rets = self.load_data(tag=check_type)
+            
+            if self.os_alpha_ids is None or self.os_alpha_rets is None:
+                return False, False
+            
+            self.current_check_type = check_type
+            self.data_loaded = True
+            
+            return True, True
+            
+        except Exception as e:
+            self.logger.error(f"❌ 本地数据加载失败: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, False
+    
     def _remove_submitted_alphas_from_database(self, alpha_ids: List[str]):
         """从数据库中移除已提交的Alpha（避免和自己产生1.0相关性）"""
         if not alpha_ids:
