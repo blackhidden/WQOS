@@ -506,14 +506,27 @@ class OptimizedChecker:
             tomorrow = start_date_obj + timedelta(days=1)
             today = datetime.now().date()
             
+            # 计算end_date_time为当前时间的前一个小时（上海时区）
+            now = datetime.now()
+            end_time_obj = now - timedelta(hours=1)
+            end_date_time = end_time_obj.strftime('%H:%M:%S')
+            
             if tomorrow.date() == today:
                 # start_date+1是今天，使用start_date+2
                 end_date = (start_date_obj + timedelta(days=2)).strftime('%Y-%m-%d')
                 self.logger.info(f"📅 检测到start_date+1({tomorrow.strftime('%Y-%m-%d')})是今天，使用start_date+2作为end_date")
+                # 如果是明天，使用23:59:59避免遗漏
+                end_date_time = "23:59:59"
             else:
                 # start_date+1不是今天，使用start_date+1
                 end_date = tomorrow.strftime('%Y-%m-%d')
                 self.logger.info(f"📅 start_date+1({tomorrow.strftime('%Y-%m-%d')})不是今天，使用start_date+1作为end_date")
+                # 如果是今天，使用当前时间前一小时
+                if tomorrow.date() < today:
+                    # 如果查询的是过去的日期，使用23:59:59
+                    end_date_time = "23:59:59"
+            
+            self.logger.info(f"📅 查询时间范围: {start_date} 00:00:00 到 {end_date} {end_date_time} (上海时区)")
             
             self.logger.info(f"📅 检查时间段: {start_date} 到 {end_date}")
             
@@ -543,7 +556,8 @@ class OptimizedChecker:
                 need_to_check = get_alphas(
                     start_date, end_date, sh_th, fitness_th, 10, 10,
                     region=region, universe="", delay='', instrumentType='',
-                    alpha_num=9999, usage="submit", tag='', color_exclude='RED', s=self.session
+                    alpha_num=9999, usage="submit", tag='', color_exclude='RED', s=self.session,
+                    end_date_time=end_date_time
                 )
                 
                 # 统一过滤所有已处理状态的Alpha（GREEN、YELLOW、BLUE、PURPLE）
