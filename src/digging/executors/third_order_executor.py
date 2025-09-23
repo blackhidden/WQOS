@@ -80,6 +80,14 @@ class ThirdOrderExecutor(BaseExecutor):
         # 生成三阶因子
         third_order_factors = []
         self.logger.info(f"请构建三阶因子表达式")
+
+
+        
+        for expr, decay in so_layer:
+            for alpha in trade_when_factory("trade_when", expr, self.config_manager.region):
+                third_order_factors.append((alpha, decay))
+
+
         
         if self.logger:
             self.logger.info(f"📊 生成三阶因子: {len(third_order_factors):,} 个")
