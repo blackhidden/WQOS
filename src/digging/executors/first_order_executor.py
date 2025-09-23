@@ -98,6 +98,10 @@ class FirstOrderExecutor(BaseExecutor):
         ts_ops, basic_ops, group_ops = get_filtered_operators()
         first_order = []
         self.logger.info(f"请构建一阶因子表达式")       
+
+
+        first_order = first_order_factory(pc_fields, ts_ops)
+
         
         if self.logger:
             self.logger.info(f"📊 生成一阶因子: {len(first_order):,} 个")
