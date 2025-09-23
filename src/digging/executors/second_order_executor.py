@@ -82,6 +82,12 @@ class SecondOrderExecutor(BaseExecutor):
         # 生成二阶因子
         second_order_factors = []
         self.logger.info(f"请构建二阶因子表达式")
+
+
+        for expr, decay in fo_layer:
+            for alpha in get_group_second_order_factory([expr], group_ops, self.config_manager.region):
+                second_order_factors.append((alpha, decay))
+
         
         if self.logger:
             self.logger.info(f"📊 生成二阶因子: {len(second_order_factors):,} 个")
