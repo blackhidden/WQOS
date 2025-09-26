@@ -29,6 +29,15 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
         cache-dependency-path: 'digging-dashboard/frontend/package-lock.json'
+        
+    - name: Validate lockfile existence
+      working-directory: ./digging-dashboard/frontend
+      run: |
+        if [ ! -f package-lock.json ]; then
+           echo "❌ package-lock.json not found!"
+           exit 1
+        fi
+        
     - name: ci
       working-directory: ./digging-dashboard/frontend/
       run: npm ci
