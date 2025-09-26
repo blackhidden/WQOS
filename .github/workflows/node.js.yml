@@ -6,10 +6,10 @@ name: Node.js CI
 on:
   push:
       paths:
-        - './digging-dashboard/frontend/**'
+        - 'digging-dashboard/frontend/**'
   pull_request:
       paths:
-        - './digging-dashboard/frontend/**'
+        - 'digging-dashboard/frontend/**'
 
 jobs:
   build:
@@ -28,6 +28,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+        cache-dependency-path: 'digging-dashboard/frontend/package-lock.json'
     - name: ci
       working-directory: ./digging-dashboard/frontend/
       run: npm ci
