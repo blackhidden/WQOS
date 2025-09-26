@@ -12,7 +12,7 @@ on:
 jobs:
   build:
 
-    runs-on: Rocky Linux 9.5
+    runs-on: CentOS
 
     strategy:
       matrix:
