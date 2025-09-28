@@ -40,7 +40,7 @@ jobs:
         
     - name: ci
       working-directory: ./digging-dashboard/frontend/
-      run: CI=false npm ci
+      run: npm ci
     - name: build
       working-directory: ./digging-dashboard/frontend/
       run: |
