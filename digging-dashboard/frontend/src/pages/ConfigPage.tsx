@@ -75,7 +75,7 @@ const ConfigPage: React.FC = () => {
   const [startModalVisible, setStartModalVisible] = useState(false);
   const [templateToStart, setTemplateToStart] = useState<ConfigTemplate | null>(null);
   const [startForm] = Form.useForm();
-  const [setSelectKey] = useState(0);
+  const [selectKey, setSelectKey] = useState(0);
   const [recommendedFieldsValue, setRecommendedFieldsValue] = useState<string[]>([]);
   const [isRecommendedFieldsModalVisible, setIsRecommendedFieldsModalVisible] = useState(false);
   const [tempRecommendedFields, setTempRecommendedFields] = useState<string[]>([]);
