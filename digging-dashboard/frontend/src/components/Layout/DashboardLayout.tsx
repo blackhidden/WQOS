@@ -7,14 +7,11 @@ import { Layout, Menu, Avatar, Dropdown, Button, Typography, Drawer } from 'antd
 import { 
   SettingOutlined, 
   MonitorOutlined, 
-  FileTextOutlined, 
-  HistoryOutlined,
   DashboardOutlined,
   LogoutOutlined,
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  CodeOutlined,
   BarChartOutlined,
   GithubOutlined,
   DatabaseOutlined
