@@ -16,7 +16,6 @@ import {
   Typography,
   Row,
   Col,
-  Divider,
   Tag,
   Modal,
   Popconfirm,
@@ -32,7 +31,6 @@ import {
   DeleteOutlined,
   PlayCircleOutlined,
   EyeOutlined,
-  SaveOutlined,
   ClearOutlined
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -45,13 +43,8 @@ import {
   updateConfigTemplateAsync,
   deleteConfigTemplateAsync,
   validateConfigAsync,
-  generateTagAsync,
   fetchFieldOptionsAsync,
   fetchWorldQuantOptionsAsync,
-  fetchRegionsForInstrumentAsync,
-  fetchUniversesForRegionAsync,
-  fetchDelaysForRegionAsync,
-  fetchNeutralizationsForRegionAsync,
   syncWorldQuantConfigAsync,
   getWorldQuantConfigStatusAsync,
   getWorldQuantSyncHistoryAsync,
@@ -68,10 +61,9 @@ const { TabPane } = Tabs;
 const ConfigPage: React.FC = () => {
   const { message } = App.useApp();
   const dispatch = useDispatch<AppDispatch>();
-  const { templates, fieldOptions, worldQuantOptions, dynamicOptions, syncStatus, syncHistory, syncing, loading, tagPreview } = useSelector((state: RootState) => state.config);
+  const { templates,  worldQuantOptions, dynamicOptions, syncStatus, syncHistory, syncing, loading} = useSelector((state: RootState) => state.config);
   
   const [form] = Form.useForm();
-  const [editForm] = Form.useForm();
   const [activeTab, setActiveTab] = useState('list');
   const [editingTemplate, setEditingTemplate] = useState<ConfigTemplate | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -83,7 +75,6 @@ const ConfigPage: React.FC = () => {
   const [startModalVisible, setStartModalVisible] = useState(false);
   const [templateToStart, setTemplateToStart] = useState<ConfigTemplate | null>(null);
   const [startForm] = Form.useForm();
-  const [selectKey, setSelectKey] = useState(0);
   const [recommendedFieldsValue, setRecommendedFieldsValue] = useState<string[]>([]);
   const [isRecommendedFieldsModalVisible, setIsRecommendedFieldsModalVisible] = useState(false);
   const [tempRecommendedFields, setTempRecommendedFields] = useState<string[]>([]);

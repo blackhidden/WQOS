@@ -14,7 +14,6 @@ import {
   Input,
   Select,
   Form,
-  InputNumber,
   Spin,
   App,
   Empty,
@@ -31,7 +30,7 @@ import {
 } from '@ant-design/icons';
 
 import { DashboardLayout } from '../components/Layout/DashboardLayout';
-import { datasetAPI, DatasetFieldsResponse, DatasetField, DatasetFieldsProgressResponse, DatasetFieldsProgressDetails } from '../services/dataset';
+import { datasetAPI, DatasetFieldsResponse, DatasetFieldsProgressDetails } from '../services/dataset';
 import { createDatasetFieldsProgressWebSocket, DatasetFieldsProgressWebSocket } from '../services/websocket';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../store';

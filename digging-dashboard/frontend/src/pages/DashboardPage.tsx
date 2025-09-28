@@ -10,27 +10,22 @@ import {
   Statistic,
   Typography,
   Timeline,
-  Table,
   Tag,
   Button,
   Space,
-  Alert,
   Progress,
   List,
   Avatar
 } from 'antd';
 import {
   PlayCircleOutlined,
-  PauseCircleOutlined,
   SettingOutlined,
   MonitorOutlined,
-  FileTextOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
   DatabaseOutlined,
   ApiOutlined,
-  BugOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';

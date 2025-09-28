@@ -17,13 +17,9 @@ import {
   Tooltip,
   Spin,
   App,
-  Statistic,
-  Progress,
   Modal,
-  Input,
   Form,
   Select,
-  Alert,
   InputNumber,
   Empty,
   DatePicker,
@@ -54,7 +50,6 @@ import { fetchConfigTemplatesAsync } from '../store/configSlice';
 import { scriptsAPI, ScriptStatus, ScriptTypes, LogResponse } from '../services/scripts';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 const { Option } = Select;
 
 interface ScriptInfo extends ScriptStatus {
@@ -64,7 +59,6 @@ interface ScriptInfo extends ScriptStatus {
 const ProcessManagementPage: React.FC = () => {
   const { modal, message } = App.useApp();
   const dispatch = useDispatch<AppDispatch>();
-  const { currentProcess, loading: processLoading } = useSelector((state: RootState) => state.process);
   const { templates } = useSelector((state: RootState) => state.config);
   
   // 脚本管理状态
